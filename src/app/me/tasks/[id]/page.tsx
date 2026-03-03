@@ -1,0 +1,405 @@
+﻿'use client';
+
+import React, { useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
+import { useParams, useRouter } from 'next/navigation';
+import { addDays, isPast } from 'date-fns';
+import {
+    AlertTriangle, ArrowLeft, CalendarDays, CheckCircle2, Clock3,
+    CheckSquare, Square, Paperclip, FileText, Image as ImageIcon, File, Download, MessageSquare, Plus
+} from 'lucide-react';
+import { useAppContext } from '@/contexts/AppContext';
+import { getStatusColor, getStatusLabel } from '@/utils/statusUtils';
+import { isTaskAssignedToCurrentUser } from '@/utils/taskOwnerUtils';
+import { Task } from '@/types/construction';
+import { useAuth } from '@/contexts/AuthContext';
+
+function isOverdue(task: Task): boolean {
+    if (task.status === 'completed' || !task.planEndDate) return false;
+    const endDate = new Date(task.planEndDate);
+    endDate.setHours(23, 59, 59, 999);
+    return isPast(endDate);
+}
+
+function isDueSoon(task: Task): boolean {
+    if (task.status === 'completed' || !task.planEndDate) return false;
+    const endDate = new Date(task.planEndDate);
+    endDate.setHours(23, 59, 59, 999);
+    return !isPast(endDate) && endDate <= addDays(new Date(), 2);
+}
+
+function getFileIcon(type: string) {
+    if (type.startsWith('image/')) return <ImageIcon className="w-4 h-4 text-[#579bfc]" />;
+    if (type.includes('pdf')) return <FileText className="w-4 h-4 text-[#e2445c]" />;
+    return <File className="w-4 h-4 text-[#676879]" />;
+}
+
+function formatBytes(bytes: number): string {
+    if (bytes === 0) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return `${parseFloat((bytes / Math.pow(k, i)).toFixed(1))} ${sizes[i]}`;
+}
+
+export default function UserTaskDetailPage() {
+    const router = useRouter();
+    const { user } = useAuth();
+    const params = useParams<{ id: string }>();
+    const taskId = Array.isArray(params.id) ? params.id[0] : params.id;
+    const {
+        tasks,
+        projects,
+        teamMembers,
+        subtasks,
+        attachments,
+        taskUpdates,
+        subscribeTaskDetails,
+        addSubTask,
+        toggleSubTask,
+        addTaskUpdate,
+        currentUserName,
+        loading,
+        handleUpdateTaskStatus,
+        handleUpdateTaskProgress,
+    } = useAppContext();
+
+    useEffect(() => {
+        if (!taskId) return;
+        const unsubscribe = subscribeTaskDetails(taskId);
+        return () => unsubscribe();
+    }, [taskId, subscribeTaskDetails]);
+
+    const [newSubtaskName, setNewSubtaskName] = useState('');
+    const [newUpdateText, setNewUpdateText] = useState('');
+    const [isSubmittingSubtask, setIsSubmittingSubtask] = useState(false);
+    const [isSubmittingUpdate, setIsSubmittingUpdate] = useState(false);
+    const sortedTaskUpdates = useMemo(() => {
+        const updates = taskId ? (taskUpdates[taskId] || []) : [];
+        return [...updates].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    }, [taskId, taskUpdates]);
+
+    if (loading) {
+        return (
+            <div className="flex items-center justify-center min-h-screen bg-[#f5f6f8]">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#0073ea]"></div>
+            </div>
+        );
+    }
+
+    const task = tasks.find((item) => item.id === taskId);
+    if (!task) {
+        return (
+            <div className="min-h-screen bg-[#f5f6f8] p-4 flex items-center justify-center">
+                <div className="bg-white border border-[#d0d4e4] rounded-xl p-5 text-center max-w-sm w-full">
+                    <p className="text-[15px] font-semibold text-[#323338]">Task not found</p>
+                    <Link
+                        href="/me"
+                        className="mt-3 inline-flex px-3 py-2 rounded-lg bg-[#0073ea] text-white text-[13px] font-semibold"
+                    >
+                        Back to My Tasks
+                    </Link>
+                </div>
+            </div>
+        );
+    }
+
+    const isOwner = isTaskAssignedToCurrentUser(task, teamMembers, currentUserName, user?.lineUserId, user?.uid);
+    if (!isOwner) {
+        return (
+            <div className="min-h-screen bg-[#f5f6f8] p-4 flex items-center justify-center">
+                <div className="bg-white border border-[#d0d4e4] rounded-xl p-5 text-center max-w-sm w-full">
+                    <p className="text-[15px] font-semibold text-[#323338]">No permission for this task</p>
+                    <Link
+                        href="/me"
+                        className="mt-3 inline-flex px-3 py-2 rounded-lg bg-[#0073ea] text-white text-[13px] font-semibold"
+                    >
+                        Back to My Tasks
+                    </Link>
+                </div>
+            </div>
+        );
+    }
+
+    const project = projects.find((item) => item.id === task.projectId);
+    const overdue = isOverdue(task);
+    const dueSoon = isDueSoon(task);
+    const taskSubtasks = subtasks[taskId] || [];
+    const completedSubtasks = taskSubtasks.filter((item) => item.completed).length;
+    const taskAttachments = attachments[taskId] || [];
+
+    const handleAddSubtask = async () => {
+        const name = newSubtaskName.trim();
+        if (!name || isSubmittingSubtask) return;
+        try {
+            setIsSubmittingSubtask(true);
+            await Promise.resolve(addSubTask(task.id, name));
+            setNewSubtaskName('');
+        } finally {
+            setIsSubmittingSubtask(false);
+        }
+    };
+
+    const handleToggleSubtask = (subtaskId: string) => {
+        void Promise.resolve(toggleSubTask(task.id, subtaskId));
+    };
+
+    const handleAddUpdate = async () => {
+        const text = newUpdateText.trim();
+        if (!text || isSubmittingUpdate) return;
+        try {
+            setIsSubmittingUpdate(true);
+            await addTaskUpdate(task.id, text);
+            setNewUpdateText('');
+        } finally {
+            setIsSubmittingUpdate(false);
+        }
+    };
+
+    return (
+        <div className="min-h-screen bg-[#f5f6f8]">
+            <header className="sticky top-0 z-20 bg-gradient-to-r from-[#4f9f2f] via-[#5cac37] to-[#71b545] px-4 py-3 shadow-[0_4px_14px_rgba(56,120,34,0.35)]">
+                <div className="flex items-center gap-2">
+                    <button
+                        onClick={() => router.push('/me')}
+                        className="p-2 rounded-lg bg-white/15 text-white hover:bg-white/25 transition-colors"
+                        aria-label="Back"
+                    >
+                        <ArrowLeft className="w-4 h-4" />
+                    </button>
+                    <div className="min-w-0">
+                        <p className="text-[11px] text-white/85 truncate">{project?.name || 'No Project'}</p>
+                        <h1 className="text-[15px] font-bold text-white truncate">{task.name}</h1>
+                    </div>
+                </div>
+            </header>
+
+            <main className="p-4 space-y-3 max-w-md mx-auto">
+                <div className="bg-white border border-[#d0d4e4] rounded-xl p-3.5">
+                    <div className="flex items-center justify-between gap-2">
+                        <span className={`text-[11px] px-2 py-1 rounded-full font-semibold ${getStatusColor(task.status)}`}>
+                            {getStatusLabel(task.status)}
+                        </span>
+                        <div className="text-[11px] text-[#676879]">{task.category || 'No Category'}</div>
+                    </div>
+
+                    <div className="mt-3 flex items-center justify-between text-[12px]">
+                        <div className="text-[#676879] flex items-center gap-1">
+                            <CalendarDays className="w-3.5 h-3.5" /> {task.planEndDate}
+                        </div>
+                        {overdue ? (
+                            <div className="text-[#e2445c] font-semibold flex items-center gap-1">
+                                <AlertTriangle className="w-3.5 h-3.5" /> Overdue
+                            </div>
+                        ) : dueSoon ? (
+                            <div className="text-[#fdab3d] font-semibold flex items-center gap-1">
+                                <Clock3 className="w-3.5 h-3.5" /> Due soon
+                            </div>
+                        ) : (
+                            <div className="text-[#00a66a] font-semibold flex items-center gap-1">
+                                <CheckCircle2 className="w-3.5 h-3.5" /> On track
+                            </div>
+                        )}
+                    </div>
+                </div>
+
+                <div className="bg-white border border-[#d0d4e4] rounded-xl p-3.5">
+                    <p className="text-[12px] font-semibold text-[#676879] uppercase tracking-wider mb-2">Update Status</p>
+                    <div className="grid grid-cols-2 gap-2">
+                        <button
+                            onClick={() => handleUpdateTaskStatus(task.id, 'not-started')}
+                            className="text-[12px] px-2 py-2 rounded-lg bg-[#f5f6f8] text-[#676879] font-semibold"
+                        >
+                            Not Started
+                        </button>
+                        <button
+                            onClick={() => handleUpdateTaskStatus(task.id, 'in-progress')}
+                            className="text-[12px] px-2 py-2 rounded-lg bg-[#fff3e0] text-[#ad6800] font-semibold"
+                        >
+                            Working
+                        </button>
+                        <button
+                            onClick={() => handleUpdateTaskStatus(task.id, 'completed')}
+                            className="text-[12px] px-2 py-2 rounded-lg bg-[#e6faef] text-[#007a4d] font-semibold"
+                        >
+                            Done
+                        </button>
+                        <button
+                            onClick={() => handleUpdateTaskStatus(task.id, 'delayed')}
+                            className="text-[12px] px-2 py-2 rounded-lg bg-[#ffebef] text-[#c6314a] font-semibold"
+                        >
+                            Stuck
+                        </button>
+                    </div>
+                </div>
+
+                <div className="bg-white border border-[#d0d4e4] rounded-xl p-3.5">
+                    <div className="flex items-center justify-between">
+                        <p className="text-[12px] font-semibold text-[#676879] uppercase tracking-wider">Progress</p>
+                        <p className="text-[12px] font-bold text-[#323338]">{task.progress}%</p>
+                    </div>
+                    <input
+                        type="range"
+                        min={0}
+                        max={100}
+                        value={task.progress}
+                        onChange={(event) => handleUpdateTaskProgress(task.id, event.target.value)}
+                        className="w-full mt-3 accent-[#0073ea]"
+                    />
+                </div>
+
+                <div className="bg-white border border-[#d0d4e4] rounded-xl p-3.5">
+                    <p className="text-[12px] font-semibold text-[#676879] uppercase tracking-wider mb-2">Description</p>
+                    <p className="text-[13px] text-[#323338] whitespace-pre-wrap">
+                        {task.description || 'No description'}
+                    </p>
+                </div>
+
+                <div className="bg-white border border-[#d0d4e4] rounded-xl p-3.5">
+                    <div className="flex items-center justify-between mb-2">
+                        <p className="text-[12px] font-semibold text-[#676879] uppercase tracking-wider flex items-center gap-1.5">
+                            <CheckSquare className="w-3.5 h-3.5 text-[#00a66a]" /> Sub-Tasks
+                        </p>
+                        <p className="text-[11px] font-semibold text-[#323338]">
+                            {completedSubtasks}/{taskSubtasks.length}
+                        </p>
+                    </div>
+                    {taskSubtasks.length === 0 ? (
+                        <p className="text-[12px] text-[#a0a2b1]">No sub-tasks</p>
+                    ) : (
+                        <div className="space-y-1.5">
+                            {taskSubtasks.map((item) => (
+                                <button
+                                    key={item.id}
+                                    type="button"
+                                    onClick={() => handleToggleSubtask(item.id)}
+                                    className="w-full flex items-center gap-2.5 text-[13px] text-left px-1 py-1 rounded-md hover:bg-[#f5f6f8] transition-colors"
+                                >
+                                    {item.completed ? (
+                                        <CheckSquare className="w-4 h-4 text-[#00a66a] shrink-0" />
+                                    ) : (
+                                        <Square className="w-4 h-4 text-[#a0a2b1] shrink-0" />
+                                    )}
+                                    <span className={item.completed ? 'line-through text-[#a0a2b1]' : 'text-[#323338]'}>
+                                        {item.name}
+                                    </span>
+                                </button>
+                            ))}
+                        </div>
+                    )}
+                    <div className="mt-3 flex items-center gap-2">
+                        <input
+                            type="text"
+                            value={newSubtaskName}
+                            onChange={(event) => setNewSubtaskName(event.target.value)}
+                            onKeyDown={(event) => {
+                                if (event.key === 'Enter') {
+                                    event.preventDefault();
+                                    void handleAddSubtask();
+                                }
+                            }}
+                            placeholder="Add sub-task"
+                            className="flex-1 h-9 rounded-lg border border-[#d0d4e4] px-2.5 text-[13px] text-[#323338] outline-none focus:border-[#0073ea] focus:ring-2 focus:ring-[#0073ea]/20"
+                        />
+                        <button
+                            type="button"
+                            onClick={() => void handleAddSubtask()}
+                            disabled={isSubmittingSubtask || newSubtaskName.trim() === ''}
+                            className="h-9 px-3 inline-flex items-center gap-1.5 rounded-lg bg-[#0073ea] text-white text-[12px] font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                            <Plus className="w-3.5 h-3.5" />
+                            Add
+                        </button>
+                    </div>
+                </div>
+
+                <div className="bg-white border border-[#d0d4e4] rounded-xl p-3.5">
+                    <div className="flex items-center justify-between mb-2">
+                        <p className="text-[12px] font-semibold text-[#676879] uppercase tracking-wider flex items-center gap-1.5">
+                            <MessageSquare className="w-3.5 h-3.5 text-[#579bfc]" /> Updates & Comments
+                        </p>
+                        <p className="text-[11px] font-semibold text-[#323338]">{sortedTaskUpdates.length}</p>
+                    </div>
+
+                    <textarea
+                        value={newUpdateText}
+                        onChange={(event) => setNewUpdateText(event.target.value)}
+                        placeholder="Write an update or comment..."
+                        className="w-full min-h-[88px] rounded-lg border border-[#d0d4e4] px-2.5 py-2 text-[13px] text-[#323338] outline-none resize-y focus:border-[#0073ea] focus:ring-2 focus:ring-[#0073ea]/20"
+                    />
+                    <div className="mt-2 flex justify-end">
+                        <button
+                            type="button"
+                            onClick={() => void handleAddUpdate()}
+                            disabled={isSubmittingUpdate || newUpdateText.trim() === ''}
+                            className="h-9 px-3 rounded-lg bg-[#0073ea] text-white text-[12px] font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                            Post Update
+                        </button>
+                    </div>
+
+                    {sortedTaskUpdates.length === 0 ? (
+                        <p className="mt-3 text-[12px] text-[#a0a2b1]">No updates yet</p>
+                    ) : (
+                        <div className="mt-3 space-y-2.5">
+                            {sortedTaskUpdates.map((update) => (
+                                <div key={update.id} className="rounded-lg border border-[#e6e9ef] bg-[#f8f9fb] px-2.5 py-2">
+                                    <div className="flex items-center justify-between gap-2">
+                                        <p className="text-[12px] font-semibold text-[#323338] truncate">{update.author || currentUserName}</p>
+                                        <p className="text-[11px] text-[#8f93a4] whitespace-nowrap">
+                                            {new Date(update.date).toLocaleString()}
+                                        </p>
+                                    </div>
+                                    <p className="mt-1 text-[13px] text-[#323338] whitespace-pre-wrap break-words">{update.text}</p>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+
+                <div className="bg-white border border-[#d0d4e4] rounded-xl p-3.5">
+                    <div className="flex items-center justify-between mb-2">
+                        <p className="text-[12px] font-semibold text-[#676879] uppercase tracking-wider flex items-center gap-1.5">
+                            <Paperclip className="w-3.5 h-3.5 text-[#676879]" /> Attachments
+                        </p>
+                        <p className="text-[11px] font-semibold text-[#323338]">{taskAttachments.length}</p>
+                    </div>
+                    {taskAttachments.length === 0 ? (
+                        <p className="text-[12px] text-[#a0a2b1]">No attachments</p>
+                    ) : (
+                        <div className="space-y-2">
+                            {taskAttachments.map((item) => (
+                                <div key={item.id} className="flex items-center gap-2.5 bg-[#f5f6f8] rounded-lg px-2.5 py-2">
+                                    {getFileIcon(item.type)}
+                                    <div className="min-w-0 flex-1">
+                                        <p className="text-[13px] text-[#323338] truncate">{item.name}</p>
+                                        <p className="text-[11px] text-[#a0a2b1]">
+                                            {formatBytes(item.size)} | {new Date(item.createdAt).toLocaleString()}
+                                        </p>
+                                    </div>
+                                    {item.url || item.data ? (
+                                        <a
+                                            href={item.url || item.data}
+                                            target="_blank"
+                                            rel="noreferrer"
+                                            download={item.name}
+                                            className="p-1.5 rounded-md hover:bg-white text-[#676879]"
+                                            title="Download attachment"
+                                        >
+                                            <Download className="w-4 h-4" />
+                                        </a>
+                                    ) : (
+                                        <span className="p-1.5 text-[#a0a2b1]" title="File is unavailable">
+                                            <Download className="w-4 h-4" />
+                                        </span>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            </main>
+        </div>
+    );
+}
+
