@@ -4,8 +4,16 @@ import React, { useState } from 'react';
 import { Loader2, ShieldCheck } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 
-export default function LoginPage() {
+interface LoginPageProps {
+    allowLineAuth?: boolean;
+}
+
+export default function LoginPage({ allowLineAuth = false }: LoginPageProps) {
     const {
+        loginLine,
+        pendingLineProfile,
+        requiresLinePhoneBinding,
+        bindLinePhone,
         loginWithPassword,
         registerWithPassword,
     } = useAuth();
@@ -16,6 +24,9 @@ export default function LoginPage() {
     const [credentialDisplayName, setCredentialDisplayName] = useState('');
     const [authError, setAuthError] = useState('');
     const [authSubmitting, setAuthSubmitting] = useState(false);
+    const [linePhone, setLinePhone] = useState('');
+    const [lineBindingError, setLineBindingError] = useState('');
+    const [lineBindingSubmitting, setLineBindingSubmitting] = useState(false);
 
     const handleCredentialSubmit = async () => {
         const user = credentialUser.trim();
@@ -43,6 +54,25 @@ export default function LoginPage() {
         }
     };
 
+    const handleLinePhoneBinding = async () => {
+        const phone = linePhone.trim();
+        if (!phone) {
+            setLineBindingError('Please enter your phone number.');
+            return;
+        }
+
+        try {
+            setLineBindingSubmitting(true);
+            setLineBindingError('');
+            await bindLinePhone(phone);
+        } catch (error) {
+            const message = error instanceof Error ? error.message : 'Phone binding failed.';
+            setLineBindingError(message);
+        } finally {
+            setLineBindingSubmitting(false);
+        }
+    };
+
     return (
         <div className="min-h-screen bg-[#eef2f6] flex items-center justify-center p-4">
             <div className="w-full max-w-[460px]">
@@ -59,6 +89,56 @@ export default function LoginPage() {
                     </header>
 
                     <main className="px-7 py-6 space-y-3">
+                        {allowLineAuth && (
+                            <div className="rounded-xl border border-[#d6e2ef] bg-[#f6f9fd] p-3 space-y-2">
+                                <p className="text-[12px] font-semibold text-[#1d2936]">LINE Access</p>
+
+                                {requiresLinePhoneBinding ? (
+                                    <>
+                                        <p className="text-[12px] text-[#4f5b68]">
+                                            LINE account <span className="font-semibold">{pendingLineProfile?.displayName || '-'}</span> is not linked yet.
+                                            Enter phone number to bind with system user.
+                                        </p>
+                                        <input
+                                            type="text"
+                                            value={linePhone}
+                                            onChange={e => setLinePhone(e.target.value)}
+                                            onKeyDown={e => e.key === 'Enter' && !lineBindingSubmitting && handleLinePhoneBinding()}
+                                            placeholder="Phone number"
+                                            className="w-full h-11 px-4 border border-[#ccd5e1] rounded-xl text-[14px] outline-none focus:ring-2 focus:ring-[#0b63ce]/25 focus:border-[#0b63ce]"
+                                        />
+                                        {lineBindingError && <p className="text-[12px] text-[#c6314a]">{lineBindingError}</p>}
+                                        <div className="flex items-center gap-2">
+                                            <button
+                                                type="button"
+                                                onClick={handleLinePhoneBinding}
+                                                disabled={lineBindingSubmitting}
+                                                className="h-10 px-4 inline-flex items-center justify-center gap-2 bg-[#0b63ce] hover:bg-[#0a56b4] text-white font-semibold rounded-lg text-[13px] disabled:bg-[#a0a2b1] disabled:cursor-not-allowed"
+                                            >
+                                                {lineBindingSubmitting && <Loader2 className="w-4 h-4 animate-spin" />}
+                                                {lineBindingSubmitting ? 'Binding...' : 'Bind Phone'}
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={loginLine}
+                                                className="h-10 px-4 inline-flex items-center justify-center rounded-lg border border-[#c5d3e2] bg-white text-[#1f2f40] text-[13px] font-semibold hover:bg-[#eef3f8]"
+                                            >
+                                                Change LINE
+                                            </button>
+                                        </div>
+                                    </>
+                                ) : (
+                                    <button
+                                        type="button"
+                                        onClick={loginLine}
+                                        className="w-full h-11 inline-flex items-center justify-center rounded-xl border border-[#0b63ce] bg-[#eaf2fd] text-[#0b63ce] text-[14px] font-semibold hover:bg-[#dfeaf9]"
+                                    >
+                                        Sign In with LINE
+                                    </button>
+                                )}
+                            </div>
+                        )}
+
                         <div className="flex items-center justify-between">
                             <p className="text-[13px] font-semibold text-[#1d2936]">
                                 {authMode === 'login' ? 'Sign in with User / Password' : 'Create User / Password'}
@@ -118,9 +198,11 @@ export default function LoginPage() {
                             <p className="text-[11px] text-[#4f5b68]">
                                 Tip: username only will be stored as <code className="font-mono">username@workos.local</code>
                             </p>
-                            <p className="mt-1 text-[11px] text-[#6b7785]">
-                                LINE login is handled from <code className="font-mono">/me</code>.
-                            </p>
+                            {allowLineAuth && (
+                                <p className="mt-1 text-[11px] text-[#6b7785]">
+                                    LINE login and phone binding are available on this page.
+                                </p>
+                            )}
                         </div>
                     </main>
                 </div>

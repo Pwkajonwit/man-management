@@ -16,12 +16,3 @@ body {
   background: var(--background);
   color: var(--foreground);
 }
-
-/* Frappe Gantt base styling overrides */
-.gantt .grid-row { fill: #ffffff; }
-.gantt .grid-row:nth-child(even) { fill: #f8fafc; }
-.gantt .grid-row:hover { fill: #f1f5f9; }
-.gantt .bar { fill: #6366f1; stroke: #4f46e5; stroke-width: 0; rx: 4; ry: 4; transition: fill 0.2s; }
-.gantt .bar-progress { fill: #4338ca; rx: 4; ry: 4; }
-.gantt .bar-label { font-size: 12px; font-weight: 500; fill: #ffffff; pointer-events: none; }
-.gantt .bar-wrapper:hover .bar { fill: #4f46e5; }

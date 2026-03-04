@@ -15,8 +15,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "WorkOS - Task Management",
-  description: "A modern task and project management system",
+  title: "Powertec - Task Management",
+  description: "task and project management system",
 };
 
 export default function RootLayout({

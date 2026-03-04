@@ -20,7 +20,7 @@ export default function UserGate({ children }: { children: React.ReactNode }) {
         );
     }
 
-    if (!isAuthenticated) return <LoginPage />;
+    if (!isAuthenticated) return <LoginPage allowLineAuth />;
 
     return <div className="min-h-dvh bg-[#f5f6f8]">{children}</div>;
 }

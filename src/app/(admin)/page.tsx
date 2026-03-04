@@ -5,12 +5,11 @@ import { createPortal } from 'react-dom';
 import { Project, Task } from '@/types/construction';
 import { format, addDays, isPast, addDays as addD } from 'date-fns';
 import {
-  Search, Plus, ChevronDown, GanttChart, LayoutGrid,
+  Search, Plus, ChevronDown, LayoutGrid,
   Activity, MessageSquare, Trash2, Download, Upload,
   Filter, AlertTriangle, X, CalendarDays, Send, Clock3, Check
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import GanttView from '@/components/GanttView';
 import KanbanBoard from '@/components/KanbanBoard';
 import TaskCalendarView from '@/components/TaskCalendarView';
 import TaskUpdateDrawer from '@/components/TaskUpdateDrawer';
@@ -86,7 +85,7 @@ export default function TaskBoardPage() {
     handleUpdateTaskProgress, handleUpdateTaskPriority,
   } = useAppContext();
 
-  const [activeTab, setActiveTab] = useState<'table' | 'kanban' | 'gantt' | 'calendar'>('table');
+  const [activeTab, setActiveTab] = useState<'table' | 'kanban' | 'calendar'>('table');
   const [activeOwnerDropdown, setActiveOwnerDropdown] = useState<string | null>(null);
   const [ownerDropdownAnchor, setOwnerDropdownAnchor] = useState<{ x: number; y: number } | null>(null);
   const [activeCrewDropdown, setActiveCrewDropdown] = useState<string | null>(null);
@@ -1063,12 +1062,6 @@ export default function TaskBoardPage() {
               <LayoutGrid className="w-4 h-4" /> Kanban
             </button>
             <button
-              onClick={() => setActiveTab('gantt')}
-              className={`pb-3 flex items-center gap-2 border-b-[3px] font-medium transition-colors whitespace-nowrap ${activeTab === 'gantt' ? 'border-[#0073ea] text-[#0073ea]' : 'border-transparent text-[#676879] hover:text-[#323338]'}`}
-            >
-              <GanttChart className="w-4 h-4" /> Gantt
-            </button>
-            <button
               onClick={() => setActiveTab('calendar')}
               className={`pb-3 flex items-center gap-2 border-b-[3px] font-medium transition-colors whitespace-nowrap ${activeTab === 'calendar' ? 'border-[#0073ea] text-[#0073ea]' : 'border-transparent text-[#676879] hover:text-[#323338]'}`}
             >
@@ -1327,7 +1320,7 @@ export default function TaskBoardPage() {
                           <th className="px-4 py-3 w-[120px] font-normal border-r border-[#d0d4e4] text-center">Crew</th>
                           <th className="px-0 py-3 w-[140px] font-normal border-r border-[#d0d4e4] text-center">Status</th>
                           <th className="px-0 py-3 w-[100px] font-normal border-r border-[#d0d4e4] text-center">Priority</th>
-                          <th className="px-4 py-3 w-[200px] font-normal border-r border-[#d0d4e4] text-center">Timeline</th>
+                          <th className="px-4 py-3 w-[220px] font-normal border-r border-[#d0d4e4] text-center">Timeline</th>
                           <th className="px-4 py-3 w-[100px] font-normal text-center">Progress</th>
                         </tr>
                       </thead>
@@ -1340,8 +1333,9 @@ export default function TaskBoardPage() {
                           const crewNames = assignment?.crewNames || [];
                           const visibleOwnerNames = ownerNames.slice(0, 3);
                           const additionalOwnerCount = Math.max(ownerNames.length - visibleOwnerNames.length, 0);
-                          const visibleCrewNames = crewNames.slice(0, 3);
-                          const additionalCrewCount = Math.max(crewNames.length - visibleCrewNames.length, 0);
+                          const crewDisplayLabel = crewNames.length === 0
+                            ? '-'
+                            : crewNames.join(', ');
                           return (
                             <tr key={task.id} className={`border-b border-[#e6e9ef] last:border-0 hover:bg-[#f5f6f8] group transition-colors ${activeOwnerDropdown === task.id || activeCrewDropdown === task.id || activeStatusDropdown === task.id || activePriorityDropdown === task.id ? 'relative z-50' : 'relative z-0'} ${overdue ? 'bg-[#fff5f5]' : ''}`}>
                               {/* Item Name */}
@@ -1483,43 +1477,12 @@ export default function TaskBoardPage() {
                               {/* Crew */}
                               <td className={`px-2 py-0 border-r border-[#d0d4e4] h-[44px] relative ${activeCrewDropdown === task.id ? 'z-50' : ''}`}>
                                 <div
-                                  className="flex justify-center items-center h-full cursor-pointer hover:bg-[#e6e9ef]/50 transition-colors"
+                                  className="w-full h-full flex justify-center items-center cursor-pointer hover:bg-[#e6e9ef]/50 transition-colors"
                                   onClick={(e) => toggleCrewDropdown(task.id, e.currentTarget)}
+                                  title={crewNames.length === 0 ? '-' : crewDisplayLabel}
                                 >
-                                  <div className="relative flex items-center">
-                                    {crewNames.length === 0 ? (
-                                      <div className="w-[30px] h-[30px] rounded-full bg-[#e6e9ef] flex items-center justify-center text-[12px] font-medium text-[#323338] border border-white shrink-0" title="No crew">
-                                        -
-                                      </div>
-                                    ) : (
-                                      <div className="flex items-center -space-x-2" title={crewNames.join(', ')}>
-                                        {visibleCrewNames.map((crewName, index) => {
-                                          const crewMember = memberByName.get(crewName);
-                                          return crewMember?.avatar ? (
-                                            <img
-                                              key={`${task.id}-crew-${crewName}`}
-                                              src={crewMember.avatar}
-                                              alt={crewName}
-                                              className="w-[30px] h-[30px] rounded-full object-cover border-2 border-white shrink-0"
-                                              style={{ zIndex: 10 - index }}
-                                            />
-                                          ) : (
-                                            <div
-                                              key={`${task.id}-crew-${crewName}`}
-                                              className="w-[30px] h-[30px] rounded-full bg-[#e6e9ef] flex items-center justify-center text-[11px] font-medium text-[#323338] border-2 border-white shrink-0"
-                                              style={{ zIndex: 10 - index }}
-                                            >
-                                              {crewName.substring(0, 2).toUpperCase()}
-                                            </div>
-                                          );
-                                        })}
-                                      </div>
-                                    )}
-                                    {additionalCrewCount > 0 && (
-                                      <div className="absolute -top-1.5 -right-2 min-w-[16px] h-4 px-1 rounded-full bg-[#fdab3d] text-white text-[10px] font-bold flex items-center justify-center">
-                                        +{additionalCrewCount}
-                                      </div>
-                                    )}
+                                  <div className={`max-w-full text-center text-[12px] px-2 truncate ${crewNames.length === 0 ? 'text-[#676879]' : 'text-[#323338]'}`}>
+                                    {crewDisplayLabel}
                                   </div>
                                 </div>
                                 {activeCrewDropdown === task.id && crewDropdownAnchor && createPortal(
@@ -1658,20 +1621,20 @@ export default function TaskBoardPage() {
                                 )}
                               </td>
                               {/* Timeline */}
-                              <td className={`px-4 py-0 border-r border-[#d0d4e4] h-[44px] ${overdue ? 'bg-[#fff5f5]' : 'bg-[#f5f6f8]/50'} group-hover:bg-[#e6e9ef]/50 cursor-text`}>
-                                <div className="flex justify-center items-center h-full gap-1">
+                              <td className={`px-2 py-0 border-r border-[#d0d4e4] h-[44px] ${overdue ? 'bg-[#fff5f5]' : 'bg-[#f5f6f8]/50'} group-hover:bg-[#e6e9ef]/50 cursor-text`}>
+                                <div className="flex justify-center items-center h-full gap-0.5">
                                   <input
                                     type="date"
                                     value={task.planStartDate}
                                     onChange={(e) => handleUpdateTaskTimeline(task.id, 'planStartDate', e.target.value)}
-                                    className="bg-transparent text-[13px] text-[#323338] w-[105px] cursor-pointer outline-none hover:bg-white rounded px-1 transition-colors"
+                                    className="bg-transparent text-[12px] leading-none tabular-nums text-[#323338] w-[104px] cursor-pointer outline-none hover:bg-white rounded px-0.5 py-0.5 transition-colors [color-scheme:light] [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-70 [&::-webkit-calendar-picker-indicator]:scale-90"
                                   />
-                                  <span className="text-[#676879]">-</span>
+                                  <span className="text-[#676879] text-[11px]">-</span>
                                   <input
                                     type="date"
                                     value={task.planEndDate}
                                     onChange={(e) => handleUpdateTaskTimeline(task.id, 'planEndDate', e.target.value)}
-                                    className={`bg-transparent text-[13px] w-[105px] cursor-pointer outline-none hover:bg-white rounded px-1 transition-colors ${overdue ? 'text-[#e2445c] font-semibold' : 'text-[#323338]'}`}
+                                    className={`bg-transparent text-[12px] leading-none tabular-nums w-[104px] cursor-pointer outline-none hover:bg-white rounded px-0.5 py-0.5 transition-colors [color-scheme:light] [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-70 [&::-webkit-calendar-picker-indicator]:scale-90 ${overdue ? 'text-[#e2445c] font-semibold' : 'text-[#323338]'}`}
                                   />
                                 </div>
                               </td>
@@ -1735,11 +1698,7 @@ export default function TaskBoardPage() {
               onOpenTask={(taskId) => router.push(`/tasks/${taskId}`)}
             />
           </div>
-        ) : (
-          <div className="h-full bg-white rounded-xl shadow-sm border border-[#d0d4e4] p-4">
-            <GanttView tasks={projectTasks} />
-          </div>
-        )}
+        ) : null}
       </div>
 
       {pendingAddCategory && (

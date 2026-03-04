@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { Task } from '@/types/construction';
 import { useRouter } from 'next/navigation';
 import { AlertTriangle, GripVertical, Clock, ChevronRight } from 'lucide-react';
-import { isPast } from 'date-fns';
+import { format, isPast } from 'date-fns';
 
 const getPriorityDotColor = (p?: string) => {
     switch (p) {
@@ -29,6 +29,17 @@ const STATUS_COLUMNS: { key: Task['status']; label: string; color: string; bgLig
     { key: 'delayed', label: 'Stuck', color: '#e2445c', bgLight: '#fef2f2' },
 ];
 
+const formatDateDisplay = (value?: string): string => {
+    if (!value) return '-';
+    const parts = value.split('-');
+    if (parts.length === 3) {
+        return `${parts[2]}/${parts[1]}/${parts[0]}`;
+    }
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) return '-';
+    return format(parsed, 'dd/MM/yyyy');
+};
+
 export default function KanbanBoard({ tasks, teamMembers, onStatusChange }: KanbanBoardProps) {
     const router = useRouter();
     const [draggedTask, setDraggedTask] = useState<Task | null>(null);
@@ -52,14 +63,10 @@ export default function KanbanBoard({ tasks, teamMembers, onStatusChange }: Kanb
     const handleDragStart = (e: React.DragEvent, task: Task) => {
         setDraggedTask(task);
         e.dataTransfer.effectAllowed = 'move';
-        // Add a custom ghost effect
-        const el = e.currentTarget as HTMLElement;
-        el.style.opacity = '0.5';
+        e.dataTransfer.setData('text/plain', task.id);
     };
 
-    const handleDragEnd = (e: React.DragEvent) => {
-        const el = e.currentTarget as HTMLElement;
-        el.style.opacity = '1';
+    const handleDragEnd = () => {
         setDraggedTask(null);
         setDragOverColumn(null);
     };
@@ -67,11 +74,7 @@ export default function KanbanBoard({ tasks, teamMembers, onStatusChange }: Kanb
     const handleDragOver = (e: React.DragEvent, status: Task['status']) => {
         e.preventDefault();
         e.dataTransfer.dropEffect = 'move';
-        setDragOverColumn(status);
-    };
-
-    const handleDragLeave = () => {
-        setDragOverColumn(null);
+        setDragOverColumn(prev => (prev === status ? prev : status));
     };
 
     const handleDrop = (e: React.DragEvent, targetStatus: Task['status']) => {
@@ -92,11 +95,10 @@ export default function KanbanBoard({ tasks, teamMembers, onStatusChange }: Kanb
                     <div
                         key={col.key}
                         className={`flex-shrink-0 w-[300px] flex flex-col rounded-xl transition-all duration-200 ${isDragTarget
-                                ? 'bg-[#cce5ff]/50 ring-2 ring-[#0073ea] ring-dashed shadow-lg scale-[1.02]'
+                                ? 'bg-[#cce5ff]/50 ring-2 ring-[#0073ea] ring-dashed shadow-lg'
                                 : 'bg-[#f5f6f8]'
                             }`}
                         onDragOver={(e) => handleDragOver(e, col.key)}
-                        onDragLeave={handleDragLeave}
                         onDrop={(e) => handleDrop(e, col.key)}
                     >
                         {/* Column Header */}
@@ -118,14 +120,16 @@ export default function KanbanBoard({ tasks, teamMembers, onStatusChange }: Kanb
                                 const ownerNames = getTaskOwnerNames(task);
                                 const primaryOwnerName = ownerNames[0] || '';
                                 const member = teamMembers.find(m => m.name === primaryOwnerName);
+                                const startDateLabel = formatDateDisplay(task.planStartDate);
+                                const endDateLabel = formatDateDisplay(task.planEndDate);
                                 return (
                                     <div
                                         key={task.id}
                                         draggable
                                         onDragStart={(e) => handleDragStart(e, task)}
                                         onDragEnd={handleDragEnd}
-                                        className={`bg-white rounded-lg border shadow-sm p-3.5 cursor-grab active:cursor-grabbing hover:shadow-md transition-all group ${overdue ? 'border-[#e2445c]/50 bg-[#fff8f8]' : 'border-[#d0d4e4]'
-                                            } ${draggedTask?.id === task.id ? 'opacity-40 scale-95' : ''}`}
+                                        className={`bg-white rounded-lg border shadow-sm p-3.5 cursor-grab active:cursor-grabbing hover:shadow-md transition-shadow group ${overdue ? 'border-[#e2445c]/50 bg-[#fff8f8]' : 'border-[#d0d4e4]'
+                                            } ${draggedTask?.id === task.id ? 'opacity-60' : ''}`}
                                     >
                                         {/* Top: Priority dot + Category */}
                                         <div className="flex items-center gap-2 mb-2">
@@ -176,7 +180,9 @@ export default function KanbanBoard({ tasks, teamMembers, onStatusChange }: Kanb
                                         <div className="flex items-center justify-between mt-2 pt-2 border-t border-[#e6e9ef]">
                                             <div className="flex items-center gap-1 text-[11px] text-[#a0a2b1]">
                                                 <Clock className="w-3 h-3" />
-                                                <span className={overdue ? 'text-[#e2445c] font-medium' : ''}>{task.planEndDate}</span>
+                                                <span className={overdue ? 'text-[#e2445c] font-medium' : ''}>
+                                                    {startDateLabel} - {endDateLabel}
+                                                </span>
                                             </div>
                                             <button
                                                 onClick={() => router.push(`/tasks/${task.id}`)}

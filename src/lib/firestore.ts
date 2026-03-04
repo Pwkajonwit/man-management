@@ -3,7 +3,7 @@ import {
     query, where, onSnapshot, setDoc, writeBatch, deleteField
 } from 'firebase/firestore';
 import { db } from './firebase';
-import { Project, Task, TeamMember, SubTask, Attachment, ActivityEntry, NotificationSettings } from '@/types/construction';
+import { Project, Task, TeamMember, SubTask, Attachment, ActivityEntry, NotificationSettings, SystemUserAccount } from '@/types/construction';
 
 function omitUndefinedFields(data: Record<string, unknown>): Record<string, unknown> {
     const payload: Record<string, unknown> = {};
@@ -117,6 +117,33 @@ export function subscribeTeamMembers(callback: (members: TeamMember[]) => void) 
     return onSnapshot(collection(db, 'teamMembers'), (snapshot) => {
         const members = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as TeamMember));
         callback(members);
+    });
+}
+
+// ========== SYSTEM USERS (AUTH ACCOUNTS) ==========
+
+export async function upsertSystemUserAccount(id: string, data: Partial<Omit<SystemUserAccount, 'id'>>): Promise<void> {
+    const payload = omitUndefinedFields({
+        ...data,
+        updatedAt: new Date().toISOString(),
+    } as Record<string, unknown>);
+    await setDoc(doc(db, 'systemUsers', id), payload, { merge: true });
+}
+
+export async function deleteSystemUserAccount(id: string): Promise<void> {
+    await deleteDoc(doc(db, 'systemUsers', id));
+}
+
+export function subscribeSystemUserAccounts(callback: (users: SystemUserAccount[]) => void) {
+    return onSnapshot(collection(db, 'systemUsers'), (snapshot) => {
+        const users = snapshot.docs
+            .map((docItem) => ({ ...docItem.data(), id: docItem.id } as SystemUserAccount))
+            .sort((a, b) => {
+                const aTime = new Date(a.lastLoginAt || a.updatedAt || a.createdAt || 0).getTime();
+                const bTime = new Date(b.lastLoginAt || b.updatedAt || b.createdAt || 0).getTime();
+                return bTime - aTime;
+            });
+        callback(users);
     });
 }
 

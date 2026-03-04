@@ -29,9 +29,9 @@ function isDueSoon(task: Task): boolean {
 }
 
 function getFileIcon(type: string) {
-    if (type.startsWith('image/')) return <ImageIcon className="w-4 h-4 text-[#579bfc]" />;
-    if (type.includes('pdf')) return <FileText className="w-4 h-4 text-[#e2445c]" />;
-    return <File className="w-4 h-4 text-[#676879]" />;
+    if (type.startsWith('image/')) return <ImageIcon className="w-4 h-4 text-[#1f6feb]" />;
+    if (type.includes('pdf')) return <FileText className="w-4 h-4 text-[#315a8f]" />;
+    return <File className="w-4 h-4 text-[#64748b]" />;
 }
 
 function formatBytes(bytes: number): string {
@@ -40,6 +40,28 @@ function formatBytes(bytes: number): string {
     const sizes = ['B', 'KB', 'MB', 'GB'];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
     return `${parseFloat((bytes / Math.pow(k, i)).toFixed(1))} ${sizes[i]}`;
+}
+
+function getStatusActionClass(buttonStatus: Task['status'], currentStatus: Task['status']): string {
+    const isActive = buttonStatus === currentStatus;
+    if (buttonStatus === 'not-started') {
+        return isActive
+            ? 'bg-[#334155] text-white border-[#334155] shadow-[0_4px_12px_rgba(51,65,85,0.24)]'
+            : 'bg-[#f1f5f9] text-[#475569] border-[#cbd5e1] hover:bg-[#e8eef6]';
+    }
+    if (buttonStatus === 'in-progress') {
+        return isActive
+            ? 'bg-[#1f6feb] text-white border-[#1a5fcb] shadow-[0_4px_12px_rgba(31,111,235,0.3)]'
+            : 'bg-[#eef4ff] text-[#1e4f9a] border-[#c8d8f3] hover:bg-[#e2ecff]';
+    }
+    if (buttonStatus === 'completed') {
+        return isActive
+            ? 'bg-[#1e3a8a] text-white border-[#1d3577] shadow-[0_4px_12px_rgba(30,58,138,0.28)]'
+            : 'bg-[#e8eefc] text-[#1e3a8a] border-[#c9d5f3] hover:bg-[#dde7fb]';
+    }
+    return isActive
+        ? 'bg-[#b91c1c] text-white border-[#9f1a1a] shadow-[0_4px_12px_rgba(185,28,28,0.24)]'
+        : 'bg-[#fff1f2] text-[#9f1239] border-[#fecdd3] hover:bg-[#ffe6ea]';
 }
 
 export default function UserTaskDetailPage() {
@@ -74,6 +96,8 @@ export default function UserTaskDetailPage() {
     const [newUpdateText, setNewUpdateText] = useState('');
     const [isSubmittingSubtask, setIsSubmittingSubtask] = useState(false);
     const [isSubmittingUpdate, setIsSubmittingUpdate] = useState(false);
+    const [pendingStatusChange, setPendingStatusChange] = useState<Task['status'] | null>(null);
+    const [isSubmittingStatusChange, setIsSubmittingStatusChange] = useState(false);
     const sortedTaskUpdates = useMemo(() => {
         const updates = taskId ? (taskUpdates[taskId] || []) : [];
         return [...updates].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
@@ -156,9 +180,30 @@ export default function UserTaskDetailPage() {
         }
     };
 
+    const requestStatusChange = (nextStatus: Task['status']) => {
+        if (nextStatus === task.status) return;
+        setPendingStatusChange(nextStatus);
+    };
+
+    const cancelStatusChange = () => {
+        if (isSubmittingStatusChange) return;
+        setPendingStatusChange(null);
+    };
+
+    const confirmStatusChange = async () => {
+        if (!pendingStatusChange || isSubmittingStatusChange) return;
+        try {
+            setIsSubmittingStatusChange(true);
+            await Promise.resolve(handleUpdateTaskStatus(task.id, pendingStatusChange));
+            setPendingStatusChange(null);
+        } finally {
+            setIsSubmittingStatusChange(false);
+        }
+    };
+
     return (
-        <div className="min-h-screen bg-[#f5f6f8]">
-            <header className="sticky top-0 z-20 bg-gradient-to-r from-[#4f9f2f] via-[#5cac37] to-[#71b545] px-4 py-3 shadow-[0_4px_14px_rgba(56,120,34,0.35)]">
+        <div className="min-h-screen bg-[radial-gradient(circle_at_top,#f7faff_0%,#eef3f8_45%,#e8eef5_100%)]">
+            <header className="sticky top-0 z-20 bg-gradient-to-r from-[#10273d] via-[#163554] to-[#1f4c76] px-4 py-3 border-b border-[#2a4a68] shadow-[0_6px_18px_rgba(14,33,52,0.35)]">
                 <div className="flex items-center gap-2">
                     <button
                         onClick={() => router.push('/me')}
@@ -184,9 +229,9 @@ export default function UserTaskDetailPage() {
                     </div>
 
                     <div className="mt-3 flex items-center justify-between text-[12px]">
-                        <div className="text-[#676879] flex items-center gap-1">
-                            <CalendarDays className="w-3.5 h-3.5" /> {task.planEndDate}
-                        </div>
+                            <div className="text-[#676879] flex items-center gap-1">
+                                <CalendarDays className="w-3.5 h-3.5" /> {task.planEndDate}
+                            </div>
                         {overdue ? (
                             <div className="text-[#e2445c] font-semibold flex items-center gap-1">
                                 <AlertTriangle className="w-3.5 h-3.5" /> Overdue
@@ -196,37 +241,37 @@ export default function UserTaskDetailPage() {
                                 <Clock3 className="w-3.5 h-3.5" /> Due soon
                             </div>
                         ) : (
-                            <div className="text-[#00a66a] font-semibold flex items-center gap-1">
+                            <div className="text-[#1e4f9a] font-semibold flex items-center gap-1">
                                 <CheckCircle2 className="w-3.5 h-3.5" /> On track
                             </div>
                         )}
                     </div>
                 </div>
 
-                <div className="bg-white border border-[#d0d4e4] rounded-xl p-3.5">
+                <div className="bg-white border border-[#d0d7e3] rounded-xl p-3.5 shadow-[0_2px_10px_rgba(16,39,61,0.06)]">
                     <p className="text-[12px] font-semibold text-[#676879] uppercase tracking-wider mb-2">Update Status</p>
                     <div className="grid grid-cols-2 gap-2">
                         <button
-                            onClick={() => handleUpdateTaskStatus(task.id, 'not-started')}
-                            className="text-[12px] px-2 py-2 rounded-lg bg-[#f5f6f8] text-[#676879] font-semibold"
+                            onClick={() => requestStatusChange('not-started')}
+                            className={`text-[12px] px-2 py-2 rounded-lg border font-semibold transition-all ${getStatusActionClass('not-started', task.status)}`}
                         >
                             Not Started
                         </button>
                         <button
-                            onClick={() => handleUpdateTaskStatus(task.id, 'in-progress')}
-                            className="text-[12px] px-2 py-2 rounded-lg bg-[#fff3e0] text-[#ad6800] font-semibold"
+                            onClick={() => requestStatusChange('in-progress')}
+                            className={`text-[12px] px-2 py-2 rounded-lg border font-semibold transition-all ${getStatusActionClass('in-progress', task.status)}`}
                         >
                             Working
                         </button>
                         <button
-                            onClick={() => handleUpdateTaskStatus(task.id, 'completed')}
-                            className="text-[12px] px-2 py-2 rounded-lg bg-[#e6faef] text-[#007a4d] font-semibold"
+                            onClick={() => requestStatusChange('completed')}
+                            className={`text-[12px] px-2 py-2 rounded-lg border font-semibold transition-all ${getStatusActionClass('completed', task.status)}`}
                         >
                             Done
                         </button>
                         <button
-                            onClick={() => handleUpdateTaskStatus(task.id, 'delayed')}
-                            className="text-[12px] px-2 py-2 rounded-lg bg-[#ffebef] text-[#c6314a] font-semibold"
+                            onClick={() => requestStatusChange('delayed')}
+                            className={`text-[12px] px-2 py-2 rounded-lg border font-semibold transition-all ${getStatusActionClass('delayed', task.status)}`}
                         >
                             Stuck
                         </button>
@@ -244,7 +289,7 @@ export default function UserTaskDetailPage() {
                         max={100}
                         value={task.progress}
                         onChange={(event) => handleUpdateTaskProgress(task.id, event.target.value)}
-                        className="w-full mt-3 accent-[#0073ea]"
+                        className="w-full mt-3 accent-[#1f6feb]"
                     />
                 </div>
 
@@ -255,10 +300,10 @@ export default function UserTaskDetailPage() {
                     </p>
                 </div>
 
-                <div className="bg-white border border-[#d0d4e4] rounded-xl p-3.5">
+                <div className="bg-white border border-[#d0d7e3] rounded-xl p-3.5 shadow-[0_2px_10px_rgba(16,39,61,0.06)]">
                     <div className="flex items-center justify-between mb-2">
                         <p className="text-[12px] font-semibold text-[#676879] uppercase tracking-wider flex items-center gap-1.5">
-                            <CheckSquare className="w-3.5 h-3.5 text-[#00a66a]" /> Sub-Tasks
+                            <CheckSquare className="w-3.5 h-3.5 text-[#1f6feb]" /> Sub-Tasks
                         </p>
                         <p className="text-[11px] font-semibold text-[#323338]">
                             {completedSubtasks}/{taskSubtasks.length}
@@ -276,7 +321,7 @@ export default function UserTaskDetailPage() {
                                     className="w-full flex items-center gap-2.5 text-[13px] text-left px-1 py-1 rounded-md hover:bg-[#f5f6f8] transition-colors"
                                 >
                                     {item.completed ? (
-                                        <CheckSquare className="w-4 h-4 text-[#00a66a] shrink-0" />
+                                        <CheckSquare className="w-4 h-4 text-[#1f6feb] shrink-0" />
                                     ) : (
                                         <Square className="w-4 h-4 text-[#a0a2b1] shrink-0" />
                                     )}
@@ -305,7 +350,7 @@ export default function UserTaskDetailPage() {
                             type="button"
                             onClick={() => void handleAddSubtask()}
                             disabled={isSubmittingSubtask || newSubtaskName.trim() === ''}
-                            className="h-9 px-3 inline-flex items-center gap-1.5 rounded-lg bg-[#0073ea] text-white text-[12px] font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="h-9 px-3 inline-flex items-center gap-1.5 rounded-lg bg-[#1f6feb] hover:bg-[#1a5fcb] text-white text-[12px] font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                             <Plus className="w-3.5 h-3.5" />
                             Add
@@ -313,10 +358,10 @@ export default function UserTaskDetailPage() {
                     </div>
                 </div>
 
-                <div className="bg-white border border-[#d0d4e4] rounded-xl p-3.5">
+                <div className="bg-white border border-[#d0d7e3] rounded-xl p-3.5 shadow-[0_2px_10px_rgba(16,39,61,0.06)]">
                     <div className="flex items-center justify-between mb-2">
                         <p className="text-[12px] font-semibold text-[#676879] uppercase tracking-wider flex items-center gap-1.5">
-                            <MessageSquare className="w-3.5 h-3.5 text-[#579bfc]" /> Updates & Comments
+                            <MessageSquare className="w-3.5 h-3.5 text-[#1f6feb]" /> Updates & Comments
                         </p>
                         <p className="text-[11px] font-semibold text-[#323338]">{sortedTaskUpdates.length}</p>
                     </div>
@@ -332,7 +377,7 @@ export default function UserTaskDetailPage() {
                             type="button"
                             onClick={() => void handleAddUpdate()}
                             disabled={isSubmittingUpdate || newUpdateText.trim() === ''}
-                            className="h-9 px-3 rounded-lg bg-[#0073ea] text-white text-[12px] font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="h-9 px-3 rounded-lg bg-[#1f6feb] hover:bg-[#1a5fcb] text-white text-[12px] font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                             Post Update
                         </button>
@@ -343,7 +388,7 @@ export default function UserTaskDetailPage() {
                     ) : (
                         <div className="mt-3 space-y-2.5">
                             {sortedTaskUpdates.map((update) => (
-                                <div key={update.id} className="rounded-lg border border-[#e6e9ef] bg-[#f8f9fb] px-2.5 py-2">
+                                <div key={update.id} className="rounded-lg border border-[#dbe4ef] bg-[#f7faff] px-2.5 py-2">
                                     <div className="flex items-center justify-between gap-2">
                                         <p className="text-[12px] font-semibold text-[#323338] truncate">{update.author || currentUserName}</p>
                                         <p className="text-[11px] text-[#8f93a4] whitespace-nowrap">
@@ -357,10 +402,10 @@ export default function UserTaskDetailPage() {
                     )}
                 </div>
 
-                <div className="bg-white border border-[#d0d4e4] rounded-xl p-3.5">
+                <div className="bg-white border border-[#d0d7e3] rounded-xl p-3.5 shadow-[0_2px_10px_rgba(16,39,61,0.06)]">
                     <div className="flex items-center justify-between mb-2">
                         <p className="text-[12px] font-semibold text-[#676879] uppercase tracking-wider flex items-center gap-1.5">
-                            <Paperclip className="w-3.5 h-3.5 text-[#676879]" /> Attachments
+                            <Paperclip className="w-3.5 h-3.5 text-[#4a6786]" /> Attachments
                         </p>
                         <p className="text-[11px] font-semibold text-[#323338]">{taskAttachments.length}</p>
                     </div>
@@ -369,7 +414,7 @@ export default function UserTaskDetailPage() {
                     ) : (
                         <div className="space-y-2">
                             {taskAttachments.map((item) => (
-                                <div key={item.id} className="flex items-center gap-2.5 bg-[#f5f6f8] rounded-lg px-2.5 py-2">
+                                <div key={item.id} className="flex items-center gap-2.5 bg-[#f4f8fd] rounded-lg border border-[#dbe4ef] px-2.5 py-2">
                                     {getFileIcon(item.type)}
                                     <div className="min-w-0 flex-1">
                                         <p className="text-[13px] text-[#323338] truncate">{item.name}</p>
@@ -399,6 +444,45 @@ export default function UserTaskDetailPage() {
                     )}
                 </div>
             </main>
+
+            {pendingStatusChange && (
+                <div className="fixed inset-0 z-40 bg-black/45 backdrop-blur-[1px] flex items-center justify-center px-4">
+                    <div className="w-full max-w-sm rounded-xl border border-[#d0d7e3] bg-white shadow-[0_18px_42px_rgba(15,33,53,0.25)]">
+                        <div className="px-4 py-3 border-b border-[#e4ebf4]">
+                            <h3 className="text-[15px] font-bold text-[#1f3147]">Confirm Status Change</h3>
+                        </div>
+                        <div className="px-4 py-3 space-y-2">
+                            <p className="text-[13px] text-[#42586f] leading-relaxed">
+                                Change status for <span className="font-semibold text-[#1f3147]">{task.name}</span>?
+                            </p>
+                            <div className="text-[12px] text-[#5f7084]">
+                                New status:{' '}
+                                <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-semibold border border-[#d2ddea] ${getStatusColor(pendingStatusChange)}`}>
+                                    {getStatusLabel(pendingStatusChange)}
+                                </span>
+                            </div>
+                        </div>
+                        <div className="px-4 py-3 border-t border-[#e4ebf4] flex items-center justify-end gap-2">
+                            <button
+                                type="button"
+                                onClick={cancelStatusChange}
+                                disabled={isSubmittingStatusChange}
+                                className="px-3 py-1.5 rounded-md text-[12px] font-semibold bg-[#f1f5fa] border border-[#d3ddeb] text-[#24425f] hover:bg-[#e6edf6] disabled:opacity-60"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => void confirmStatusChange()}
+                                disabled={isSubmittingStatusChange}
+                                className="px-3 py-1.5 rounded-md text-[12px] font-semibold text-white bg-[#1f6feb] hover:bg-[#1a5fcb] disabled:opacity-60"
+                            >
+                                {isSubmittingStatusChange ? 'Updating...' : 'Confirm'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

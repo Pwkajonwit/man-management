@@ -11,7 +11,7 @@ import {
     updateProfile,
     User as FirebaseUser,
 } from 'firebase/auth';
-import { getTeamMembers, updateTeamMember } from '@/lib/firestore';
+import { getTeamMembers, updateTeamMember, upsertSystemUserAccount } from '@/lib/firestore';
 import { TeamMember } from '@/types/construction';
 
 interface AuthUser {
@@ -64,6 +64,13 @@ function mapFirebaseUser(firebaseUser: FirebaseUser): AuthUser {
         pictureUrl: firebaseUser.photoURL || undefined,
         lineUserId: undefined,
     };
+}
+
+function usernameFromEmail(email?: string): string {
+    if (!email) return '';
+    const atIndex = email.indexOf('@');
+    if (atIndex <= 0) return email;
+    return email.slice(0, atIndex);
 }
 
 function normalizePhone(phone: string): string {
@@ -218,6 +225,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
 
         const credential = await signInWithEmailAndPassword(auth, email, password);
+        try {
+            const createdAtRaw = credential.user.metadata.creationTime;
+            const createdAt = createdAtRaw ? new Date(createdAtRaw).toISOString() : undefined;
+            const effectiveEmail = credential.user.email || email;
+            await upsertSystemUserAccount(credential.user.uid, {
+                email: effectiveEmail,
+                username: usernameFromEmail(effectiveEmail),
+                displayName: credential.user.displayName || usernameFromEmail(effectiveEmail) || 'User',
+                authProvider: 'password',
+                createdAt,
+                lastLoginAt: new Date().toISOString(),
+            });
+        } catch (syncError) {
+            console.error('Failed to sync system user account on login:', syncError);
+        }
         setUser(mapFirebaseUser(credential.user));
     };
 
@@ -235,6 +257,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const finalName = (displayName || userOrEmail).trim();
         if (finalName) {
             await updateProfile(credential.user, { displayName: finalName });
+        }
+        try {
+            const nowIso = new Date().toISOString();
+            const effectiveEmail = credential.user.email || email;
+            await upsertSystemUserAccount(credential.user.uid, {
+                email: effectiveEmail,
+                username: usernameFromEmail(effectiveEmail),
+                displayName: finalName || usernameFromEmail(effectiveEmail) || 'User',
+                authProvider: 'password',
+                createdAt: nowIso,
+                lastLoginAt: nowIso,
+            });
+        } catch (syncError) {
+            console.error('Failed to sync system user account on register:', syncError);
         }
 
         setUser({

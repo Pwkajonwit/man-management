@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
@@ -23,11 +23,11 @@ const getPriorityColor = (p?: string) => {
 };
 const getPriorityLabel = (p?: string) => {
     switch (p) {
-        case 'urgent': return '🔴 Urgent';
-        case 'high': return '🟠 High';
-        case 'medium': return '🔵 Medium';
-        case 'low': return '🟢 Low';
-        default: return '—';
+        case 'urgent': return 'Urgent';
+        case 'high': return 'High';
+        case 'medium': return 'Medium';
+        case 'low': return 'Low';
+        default: return '-';
     }
 };
 
@@ -101,7 +101,7 @@ export default function TaskDetailPage() {
         return (
             <div className="flex-1 flex items-center justify-center bg-[#f5f6f8]">
                 <div className="text-center">
-                    <div className="text-5xl mb-4">🔍</div>
+                    <div className="text-5xl mb-4">?</div>
                     <h2 className="text-xl font-bold text-[#323338] mb-2">Task not found</h2>
                     <button onClick={() => router.push('/')} className="px-4 py-2 bg-[#0073ea] text-white rounded-lg text-sm font-medium hover:bg-[#0060c0] transition-colors">
                         Back to Board
@@ -188,7 +188,7 @@ export default function TaskDetailPage() {
                         className={`py-3 border-b-[3px] font-medium transition-colors capitalize whitespace-nowrap ${activeTab === tab ? 'border-[#0073ea] text-[#0073ea]' : 'border-transparent text-[#676879] hover:text-[#323338]'
                             }`}
                     >
-                        {tab === 'details' ? '📋 Details' : tab === 'activity' ? '📝 Activity Log' : `💬 Updates (${taskComments.length})`}
+                        {tab === 'details' ? 'Details' : tab === 'activity' ? 'Activity Log' : `Updates (${taskComments.length})`}
                     </button>
                 ))}
             </div>
@@ -309,10 +309,10 @@ export default function TaskDetailPage() {
                                         className="w-full bg-[#f5f6f8] border border-[#d0d4e4] rounded-lg px-3 py-1.5 text-[13px] outline-none cursor-pointer"
                                     >
                                         <option value="">None</option>
-                                        <option value="urgent">🔴 Urgent</option>
-                                        <option value="high">🟠 High</option>
-                                        <option value="medium">🔵 Medium</option>
-                                        <option value="low">🟢 Low</option>
+                                        <option value="urgent">Urgent</option>
+                                        <option value="high">High</option>
+                                        <option value="medium">Medium</option>
+                                        <option value="low">Low</option>
                                     </select>
                                 </div>
 
@@ -347,7 +347,7 @@ export default function TaskDetailPage() {
                                             className="block w-full mt-1 bg-[#f5f6f8] border border-[#d0d4e4] rounded-lg px-3 py-2 text-[13px] outline-none cursor-pointer"
                                         />
                                     </div>
-                                    <span className="text-[#676879] sm:mt-5">→</span>
+                                    <span className="text-[#676879] sm:mt-5">-&gt;</span>
                                     <div>
                                         <label className="text-[11px] text-[#676879] uppercase font-bold">End Date</label>
                                         <input type="date" value={task.planEndDate}
@@ -363,7 +363,7 @@ export default function TaskDetailPage() {
 
                             {/* Description */}
                             <div className="bg-white rounded-xl border border-[#d0d4e4] p-5">
-                                <div className="text-[13px] font-bold text-[#323338] mb-3">📄 Description</div>
+                                <div className="text-[13px] font-bold text-[#323338] mb-3">Description</div>
                                 {editingDescription ? (
                                     <div>
                                         <textarea
@@ -487,7 +487,7 @@ export default function TaskDetailPage() {
                                                 {getFileIcon(att.type)}
                                                 <div className="flex-1 min-w-0">
                                                     <div className="text-[13px] font-medium text-[#323338] truncate">{att.name}</div>
-                                                    <div className="text-[11px] text-[#a0a2b1]">{formatBytes(att.size)} • {att.uploadedBy} • {format(new Date(att.createdAt), 'MMM d, h:mm a')}</div>
+                                                    <div className="text-[11px] text-[#a0a2b1]">{formatBytes(att.size)} | {att.uploadedBy} | {format(new Date(att.createdAt), 'MMM d, h:mm a')}</div>
                                                 </div>
                                                 {att.url || att.data ? (
                                                     <a href={att.url || att.data} download={att.name} target="_blank" rel="noreferrer" className="p-1.5 hover:bg-white rounded transition-colors text-[#676879]">
@@ -513,7 +513,7 @@ export default function TaskDetailPage() {
                     {activeTab === 'activity' && (
                         <div className="bg-white rounded-xl border border-[#d0d4e4] p-5">
                             <div className="text-[13px] font-bold text-[#323338] mb-4 flex items-center gap-2">
-                                📝 Activity Log
+                                Activity Log
                             </div>
                             {taskActivity.length === 0 ? (
                                 <div className="text-center py-10 text-[#a0a2b1]">
@@ -538,7 +538,7 @@ export default function TaskDetailPage() {
                                                     {entry.oldValue && entry.newValue && (
                                                         <div className="flex items-center gap-2 mt-1.5 text-[12px]">
                                                             <span className="bg-[#ffebef] text-[#e2445c] px-2 py-0.5 rounded font-medium">{entry.oldValue}</span>
-                                                            <span className="text-[#676879]">→</span>
+                                                            <span className="text-[#676879]">-&gt;</span>
                                                             <span className="bg-[#e6faef] text-[#00c875] px-2 py-0.5 rounded font-medium">{entry.newValue}</span>
                                                         </div>
                                                     )}
@@ -559,7 +559,7 @@ export default function TaskDetailPage() {
 
                     {activeTab === 'updates' && (
                         <div className="bg-white rounded-xl border border-[#d0d4e4] p-5">
-                            <div className="text-[13px] font-bold text-[#323338] mb-4">💬 Updates & Comments</div>
+                            <div className="text-[13px] font-bold text-[#323338] mb-4">Updates & Comments</div>
                             {/* Input */}
                             <div className="border border-[#0073ea] rounded-lg overflow-hidden mb-6">
                                 <textarea
@@ -607,3 +607,5 @@ export default function TaskDetailPage() {
         </div>
     );
 }
+
+

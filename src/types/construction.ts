@@ -137,23 +137,6 @@ export interface SCurveDataPoint {
     rawId?: string;
 }
 
-// Gantt Chart data
-export interface GanttTask {
-    id: string;
-    name: string;
-    category: string;
-    planStart: Date;
-    planEnd: Date;
-    actualStart?: Date;
-    actualEnd?: Date;
-    progress: number;
-    weight: number;
-    cost?: number;
-    quantity?: string;
-    isCategory?: boolean;
-    children?: GanttTask[];
-}
-
 // Team member
 export interface Member {
     id: string;
@@ -205,6 +188,19 @@ export interface TeamMember {
     capacityHoursPerWeek?: number;
     avatar?: string; // base64 encoded image
     lineUserId?: string; // LINE userId for notifications
+}
+
+export interface SystemUserAccount {
+    id: string; // Firebase Auth uid
+    email: string;
+    username: string;
+    displayName: string;
+    authProvider: 'password' | 'line';
+    phone?: string;
+    lineUserId?: string;
+    createdAt: string;
+    lastLoginAt?: string;
+    updatedAt?: string;
 }
 
 export interface NotificationSettings {

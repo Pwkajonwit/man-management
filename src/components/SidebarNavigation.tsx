@@ -101,12 +101,9 @@ export default function SidebarNavigation({ mobile = false, onNavigate }: Sideba
 
             <div className="relative z-10 px-5 pt-5 pb-4 border-b border-white/12">
                 <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#2b74c5] to-[#4b9be0] flex items-center justify-center text-white font-black text-lg shadow-[0_8px_20px_rgba(37,112,187,0.4)]">
-                        W
-                    </div>
                     <div className="min-w-0">
-                        <p className="text-[17px] font-bold tracking-tight text-white truncate">WorkOS</p>
-                        <p className="text-[10px] uppercase tracking-[0.14em] text-[#9cb3c8]">Enterprise Suite</p>
+                        <p className="text-[17px] font-bold tracking-tight text-white truncate">Powertec</p>
+                        <p className="text-[10px] uppercase tracking-[0.14em] text-[#9cb3c8]">Task Management</p>
                     </div>
                 </div>
             </div>

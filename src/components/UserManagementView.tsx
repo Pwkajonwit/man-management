@@ -2,18 +2,31 @@
 
 import React, { useMemo, useRef, useState } from 'react';
 import { Plus, Edit2, Trash2, Check, X, Camera, ImagePlus, Search, CheckCircle2, Loader2 } from 'lucide-react';
-import { Task, TeamMember } from '@/types/construction';
+import { SystemUserAccount, Task, TeamMember } from '@/types/construction';
 import { getTaskOwnerNames } from '@/utils/taskOwnerUtils';
 
 interface UserManagementViewProps {
     teamMembers: TeamMember[];
+    systemUsers: SystemUserAccount[];
     tasks: Task[];
     onAddMember: (member: TeamMember) => Promise<void> | void;
     onUpdateMember: (memberId: string, patch: Partial<TeamMember>) => Promise<void> | void;
     onDeleteMember: (memberId: string) => Promise<void> | void;
+    onAddSystemUser: (payload: {
+        id?: string;
+        username: string;
+        email: string;
+        displayName: string;
+        authProvider: SystemUserAccount['authProvider'];
+        phone?: string;
+        lineUserId?: string;
+    }) => Promise<void> | void;
+    onUpdateSystemUser: (userId: string, patch: Partial<SystemUserAccount>) => Promise<void> | void;
+    onDeleteSystemUser: (userId: string) => Promise<void> | void;
 }
 
-type MemberType = NonNullable<TeamMember['memberType']>;
+type MemberType = 'team' | 'crew';
+type MemberTab = MemberType | 'system';
 
 const getMemberType = (member: TeamMember): MemberType => (
     member.memberType === 'crew' ? 'crew' : 'team'
@@ -33,13 +46,17 @@ const normalizeMemberName = (name: string): string => name.trim().toLowerCase();
 
 export default function UserManagementView({
     teamMembers,
+    systemUsers,
     tasks,
     onAddMember,
     onUpdateMember,
     onDeleteMember,
+    onAddSystemUser,
+    onUpdateSystemUser,
+    onDeleteSystemUser,
 }: UserManagementViewProps) {
     const [searchQuery, setSearchQuery] = useState('');
-    const [memberTab, setMemberTab] = useState<MemberType>('team');
+    const [memberTab, setMemberTab] = useState<MemberTab>('team');
     const [lineActionMemberId, setLineActionMemberId] = useState<string | null>(null);
     const [lineCopiedMemberId, setLineCopiedMemberId] = useState<string | null>(null);
 
@@ -55,6 +72,16 @@ export default function UserManagementView({
     const [editingData, setEditingData] = useState<Partial<TeamMember>>({});
     const [pendingDeleteMember, setPendingDeleteMember] = useState<TeamMember | null>(null);
     const [isDeletingMember, setIsDeletingMember] = useState(false);
+    const [newSystemDisplayName, setNewSystemDisplayName] = useState('');
+    const [newSystemUsername, setNewSystemUsername] = useState('');
+    const [newSystemEmail, setNewSystemEmail] = useState('');
+    const [newSystemPhone, setNewSystemPhone] = useState('');
+    const [newSystemLineUserId, setNewSystemLineUserId] = useState('');
+    const [newSystemProvider, setNewSystemProvider] = useState<SystemUserAccount['authProvider']>('password');
+    const [editingSystemUserId, setEditingSystemUserId] = useState<string | null>(null);
+    const [editingSystemData, setEditingSystemData] = useState<Partial<SystemUserAccount>>({});
+    const [systemLineActionUserId, setSystemLineActionUserId] = useState<string | null>(null);
+    const [systemLineCopiedUserId, setSystemLineCopiedUserId] = useState<string | null>(null);
 
     const newAvatarRef = useRef<HTMLInputElement>(null);
     const editAvatarRef = useRef<HTMLInputElement>(null);
@@ -73,6 +100,7 @@ export default function UserManagementView({
     const filteredTeamMembers = useMemo(() => {
         const q = searchQuery.trim().toLowerCase();
         return teamMembers.filter((member) => {
+            if (memberTab === 'system') return false;
             if (getMemberType(member) !== memberTab) return false;
             if (!q) return true;
             return (
@@ -84,6 +112,19 @@ export default function UserManagementView({
             );
         });
     }, [searchQuery, teamMembers, memberTab]);
+
+    const filteredSystemUsers = useMemo(() => {
+        const q = searchQuery.trim().toLowerCase();
+        if (memberTab !== 'system') return [];
+        return systemUsers.filter((user) => (
+            user.displayName.toLowerCase().includes(q)
+            || user.username.toLowerCase().includes(q)
+            || user.email.toLowerCase().includes(q)
+            || user.authProvider.toLowerCase().includes(q)
+            || (user.phone || '').toLowerCase().includes(q)
+            || (user.lineUserId || '').toLowerCase().includes(q)
+        ));
+    }, [memberTab, searchQuery, systemUsers]);
 
     const summary = useMemo(() => {
         const totalCapacity = teamMembers.reduce((sum, member) => sum + (member.capacityHoursPerWeek ?? 40), 0);
@@ -99,6 +140,7 @@ export default function UserManagementView({
 
         return {
             members: teamMembers.length,
+            systemUsers: systemUsers.length,
             totalCapacity,
             totalAssigned,
             lineLinked,
@@ -106,7 +148,7 @@ export default function UserManagementView({
             crewCount,
             overloaded,
         };
-    }, [loadByMemberName, teamMembers]);
+    }, [loadByMemberName, teamMembers, systemUsers.length]);
 
     const pendingDeleteImpactCount = useMemo(() => {
         if (!pendingDeleteMember) return 0;
@@ -310,6 +352,113 @@ export default function UserManagementView({
         }
     };
 
+    const handleSystemLineBadgeClick = async (user: SystemUserAccount) => {
+        if (!user.lineUserId || systemLineActionUserId) return;
+
+        try {
+            setSystemLineActionUserId(user.id);
+            await copyText(user.lineUserId);
+            setSystemLineCopiedUserId(user.id);
+            window.setTimeout(() => {
+                setSystemLineCopiedUserId((current) => (current === user.id ? null : current));
+            }, 1200);
+        } catch (error) {
+            console.error('Failed to copy system user LINE User ID:', error);
+            alert('Copy LINE User ID failed. Please try again.');
+        } finally {
+            setSystemLineActionUserId(null);
+        }
+    };
+
+    const handleAddSystemUserSubmit = async () => {
+        const displayName = newSystemDisplayName.trim();
+        const username = newSystemUsername.trim().toLowerCase();
+        const email = newSystemEmail.trim().toLowerCase();
+        if (!displayName || !username || !email) {
+            alert('Please enter display name, username, and email.');
+            return;
+        }
+
+        const duplicated = systemUsers.some((user) =>
+            user.username.toLowerCase() === username || user.email.toLowerCase() === email
+        );
+        if (duplicated) {
+            alert('Username or email already exists in system users.');
+            return;
+        }
+
+        await Promise.resolve(onAddSystemUser({
+            displayName,
+            username,
+            email,
+            authProvider: newSystemProvider,
+            phone: newSystemPhone.trim(),
+            lineUserId: newSystemLineUserId.trim(),
+        }));
+
+        setNewSystemDisplayName('');
+        setNewSystemUsername('');
+        setNewSystemEmail('');
+        setNewSystemPhone('');
+        setNewSystemLineUserId('');
+        setNewSystemProvider('password');
+    };
+
+    const startEditingSystemUser = (user: SystemUserAccount) => {
+        setEditingSystemUserId(user.id);
+        setEditingSystemData({ ...user });
+    };
+
+    const cancelEditingSystemUser = () => {
+        setEditingSystemUserId(null);
+        setEditingSystemData({});
+    };
+
+    const saveEditingSystemUser = async () => {
+        if (!editingSystemUserId) return;
+        const displayName = (editingSystemData.displayName || '').trim();
+        const username = (editingSystemData.username || '').trim().toLowerCase();
+        const email = (editingSystemData.email || '').trim().toLowerCase();
+        if (!displayName || !username || !email) {
+            alert('Display name, username, and email are required.');
+            return;
+        }
+
+        const duplicated = systemUsers.some((user) =>
+            user.id !== editingSystemUserId
+            && (user.username.toLowerCase() === username || user.email.toLowerCase() === email)
+        );
+        if (duplicated) {
+            alert('Username or email already exists in system users.');
+            return;
+        }
+
+        await Promise.resolve(onUpdateSystemUser(editingSystemUserId, {
+            displayName,
+            username,
+            email,
+            phone: (editingSystemData.phone || '').trim(),
+            lineUserId: (editingSystemData.lineUserId || '').trim(),
+            authProvider: editingSystemData.authProvider === 'line' ? 'line' : 'password',
+            lastLoginAt: editingSystemData.lastLoginAt,
+        }));
+        setEditingSystemUserId(null);
+        setEditingSystemData({});
+    };
+
+    const deleteSystemUser = async (user: SystemUserAccount) => {
+        const confirmed = window.confirm(`Delete system user "${user.displayName}"?`);
+        if (!confirmed) return;
+        await Promise.resolve(onDeleteSystemUser(user.id));
+    };
+
+    const formatDateTime = (isoValue?: string) => {
+        if (!isoValue) return '-';
+        const date = new Date(isoValue);
+        if (Number.isNaN(date.getTime())) return isoValue;
+        return date.toLocaleString('th-TH');
+    };
+
     return (
         <div className="flex-1 flex flex-col min-w-0 bg-[#f5f6f8]">
             <header className="min-h-[64px] bg-white flex items-center px-4 sm:px-6 lg:px-8 py-3 border-b border-[#d0d4e4] gap-4 shrink-0 transition-all">
@@ -322,7 +471,7 @@ export default function UserManagementView({
                         <div className="bg-white border border-[#d0d4e4] rounded-xl px-4 py-3">
                             <div className="text-[11px] text-[#676879] uppercase tracking-wider font-semibold">Members</div>
                             <div className="text-2xl font-black text-[#323338] mt-1">{summary.members}</div>
-                            <div className="text-[11px] text-[#676879] mt-1">Team {summary.teamCount} • Crew {summary.crewCount}</div>
+                            <div className="text-[11px] text-[#676879] mt-1">Team {summary.teamCount} • Crew {summary.crewCount} • User/Pass {summary.systemUsers}</div>
                         </div>
                         <div className="bg-white border border-[#d0d4e4] rounded-xl px-4 py-3">
                             <div className="text-[11px] text-[#676879] uppercase tracking-wider font-semibold">Total Capacity</div>
@@ -345,13 +494,13 @@ export default function UserManagementView({
                     <div className="bg-white rounded-xl shadow-sm border border-[#d0d4e4] overflow-hidden">
                         <div className="p-4 sm:p-6 border-b border-[#d0d4e4] bg-[#f5f6f8] space-y-4">
                             <div className="flex flex-col lg:flex-row gap-3 lg:items-center lg:justify-between">
-                                <h2 className="text-xl font-semibold text-[#323338]">Team Members & Crew</h2>
+                                <h2 className="text-xl font-semibold text-[#323338]">Team Members, Crew & System Users</h2>
                                 <div className="relative w-full lg:w-[320px]">
                                     <Search className="absolute left-3 top-2.5 w-4 h-4 text-[#a0a2b1]" />
                                     <input
                                         value={searchQuery}
                                         onChange={(e) => setSearchQuery(e.target.value)}
-                                        placeholder="Search name, role, crew..."
+                                        placeholder="Search name, role, username, email..."
                                         className="w-full bg-white border border-[#d0d4e4] rounded-lg pl-9 pr-3 py-2 text-[13px] outline-none focus:ring-2 focus:ring-[#0073ea]"
                                     />
                                 </div>
@@ -372,9 +521,17 @@ export default function UserManagementView({
                                 >
                                     Team ช่าง ({summary.crewCount})
                                 </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setMemberTab('system')}
+                                    className={`px-3 py-1.5 rounded-md text-[12px] font-semibold transition-colors ${memberTab === 'system' ? 'bg-[#334155] text-white' : 'text-[#676879] hover:bg-[#f5f6f8]'}`}
+                                >
+                                    ผู้ใช้ระบบ ({summary.systemUsers})
+                                </button>
                             </div>
 
-                            <div className="flex flex-col lg:flex-row gap-3 items-stretch lg:items-start">
+                            {memberTab !== 'system' && (
+                                <div className="flex flex-col lg:flex-row gap-3 items-stretch lg:items-start">
                                 <div className="shrink-0">
                                     <input type="file" accept="image/*" ref={newAvatarRef} onChange={handleNewAvatarUpload} className="hidden" />
                                     <button onClick={() => newAvatarRef.current?.click()} className="relative group" title="Upload Photo">
@@ -411,134 +568,344 @@ export default function UserManagementView({
                                 <button onClick={handleAddMember} disabled={!newMemberName.trim()} className="bg-[#0073ea] hover:bg-[#0060c0] disabled:bg-[#d0d4e4] disabled:cursor-not-allowed text-white px-5 py-2 rounded-lg font-medium transition-colors flex items-center justify-center gap-2 h-[42px] w-full lg:w-auto">
                                     <Plus className="w-4 h-4" /> Add
                                 </button>
-                            </div>
+                                </div>
+                            )}
+
+                            {memberTab === 'system' && (
+                                <div className="grid grid-cols-1 lg:grid-cols-[1fr_1fr_1fr_1fr_1fr_auto_auto] gap-2 items-center">
+                                    <input
+                                        value={newSystemDisplayName}
+                                        onChange={(e) => setNewSystemDisplayName(e.target.value)}
+                                        placeholder="Display Name"
+                                        className="w-full bg-white border border-[#d0d4e4] rounded-lg px-3 py-2 text-[13px] outline-none focus:ring-2 focus:ring-[#0073ea]"
+                                    />
+                                    <input
+                                        value={newSystemUsername}
+                                        onChange={(e) => setNewSystemUsername(e.target.value)}
+                                        placeholder="Username"
+                                        className="w-full bg-white border border-[#d0d4e4] rounded-lg px-3 py-2 text-[13px] outline-none focus:ring-2 focus:ring-[#0073ea]"
+                                    />
+                                    <input
+                                        value={newSystemEmail}
+                                        onChange={(e) => setNewSystemEmail(e.target.value)}
+                                        placeholder="Email"
+                                        className="w-full bg-white border border-[#d0d4e4] rounded-lg px-3 py-2 text-[13px] outline-none focus:ring-2 focus:ring-[#0073ea]"
+                                    />
+                                    <input
+                                        value={newSystemPhone}
+                                        onChange={(e) => setNewSystemPhone(e.target.value)}
+                                        placeholder="Phone"
+                                        className="w-full bg-white border border-[#d0d4e4] rounded-lg px-3 py-2 text-[13px] outline-none focus:ring-2 focus:ring-[#0073ea]"
+                                    />
+                                    <input
+                                        value={newSystemLineUserId}
+                                        onChange={(e) => setNewSystemLineUserId(e.target.value)}
+                                        placeholder="LINE User ID"
+                                        className="w-full bg-white border border-[#d0d4e4] rounded-lg px-3 py-2 text-[13px] outline-none focus:ring-2 focus:ring-[#0073ea]"
+                                    />
+                                    <select
+                                        value={newSystemProvider}
+                                        onChange={(e) => setNewSystemProvider(e.target.value as SystemUserAccount['authProvider'])}
+                                        className="w-full bg-white border border-[#d0d4e4] rounded-lg px-3 py-2 text-[13px] outline-none focus:ring-2 focus:ring-[#0073ea]"
+                                    >
+                                        <option value="password">User/Pass</option>
+                                        <option value="line">LINE</option>
+                                    </select>
+                                    <button
+                                        type="button"
+                                        onClick={() => void handleAddSystemUserSubmit()}
+                                        disabled={!newSystemDisplayName.trim() || !newSystemUsername.trim() || !newSystemEmail.trim()}
+                                        className="bg-[#334155] hover:bg-[#1f2937] disabled:bg-[#d0d4e4] disabled:cursor-not-allowed text-white px-4 py-2 rounded-lg text-[13px] font-medium"
+                                    >
+                                        Add User
+                                    </button>
+                                </div>
+                            )}
                         </div>
 
-                        <div className="divide-y divide-[#e6e9ef]">
-                            {filteredTeamMembers.map((member) => {
-                                const load = loadByMemberName.get(member.name) || { taskCount: 0, assignedHours: 0 };
-                                const capacity = member.capacityHoursPerWeek ?? 40;
-                                const overloaded = load.assignedHours > capacity;
-
-                                return (
-                                    <div key={member.id} className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-4 hover:bg-[#f8fafc] transition-colors group gap-3">
-                                        <div className="flex items-center gap-4 flex-1 min-w-0">
-                                            {editingMemberId === member.id ? (
-                                                <div className="shrink-0">
-                                                    <input type="file" accept="image/*" ref={editAvatarRef} onChange={handleEditAvatarUpload} className="hidden" />
-                                                    <button onClick={() => editAvatarRef.current?.click()} className="relative group/avatar" title="Change Photo">
-                                                        {(editingData.avatar || member.avatar) ? (
-                                                            <div className="relative">
-                                                                <img src={editingData.avatar || member.avatar} alt={member.name} referrerPolicy="no-referrer" className="w-10 h-10 rounded-full object-cover border-2 border-[#0073ea] shadow-sm" />
-                                                                <div className="absolute inset-0 bg-black/40 rounded-full opacity-0 group-hover/avatar:opacity-100 transition-opacity flex items-center justify-center">
-                                                                    <Camera className="w-3.5 h-3.5 text-white" />
-                                                                </div>
-                                                            </div>
-                                                        ) : (
-                                                            <div className="w-10 h-10 rounded-full bg-[#e6e9ef] border-2 border-dashed border-[#0073ea] flex items-center justify-center text-[#0073ea]"><Camera className="w-4 h-4" /></div>
-                                                        )}
-                                                    </button>
-                                                </div>
+                        {memberTab === 'system' ? (
+                            <div className="divide-y divide-[#e6e9ef]">
+                                <div className="grid grid-cols-1 md:grid-cols-[1.2fr_1fr_1.3fr_1fr_1.2fr_0.9fr_1fr_1fr_auto] gap-2 px-4 py-2 bg-[#f8fafc] text-[11px] font-bold uppercase tracking-wider text-[#676879]">
+                                    <div>Display Name / UID</div>
+                                    <div>Username</div>
+                                    <div>Email</div>
+                                    <div>Phone</div>
+                                    <div>LINE User ID</div>
+                                    <div>Provider</div>
+                                    <div>Last Login</div>
+                                    <div>Created</div>
+                                    <div className="text-right">Actions</div>
+                                </div>
+                                {filteredSystemUsers.map((user) => (
+                                    <div key={user.id} className="grid grid-cols-1 md:grid-cols-[1.2fr_1fr_1.3fr_1fr_1.2fr_0.9fr_1fr_1fr_auto] gap-2 px-4 py-3 hover:bg-[#f8fafc] transition-colors items-center">
+                                        <div className="min-w-0">
+                                            {editingSystemUserId === user.id ? (
+                                                <input
+                                                    value={editingSystemData.displayName || ''}
+                                                    onChange={(e) => setEditingSystemData({ ...editingSystemData, displayName: e.target.value })}
+                                                    className="w-full bg-white border border-[#0073ea] rounded px-2 py-1 text-[12px] outline-none"
+                                                    placeholder="Display name"
+                                                />
                                             ) : (
-                                                <div className="shrink-0 relative group/avatar">
-                                                    <input type="file" accept="image/*" className="hidden" id={`avatar-upload-${member.id}`} onChange={async (e) => {
-                                                        const file = e.target.files?.[0];
-                                                        if (file) await handleAvatarChangeForMember(member.id, file);
-                                                        e.target.value = '';
-                                                    }} />
-                                                    <label htmlFor={`avatar-upload-${member.id}`} className="cursor-pointer block relative">
-                                                        <AvatarDisplay member={member} size={40} />
-                                                        <div className="absolute inset-0 bg-black/40 rounded-full opacity-0 group-hover/avatar:opacity-100 transition-opacity flex items-center justify-center"><Camera className="w-3.5 h-3.5 text-white" /></div>
-                                                    </label>
-                                                </div>
+                                                <div className="text-[13px] font-semibold text-[#323338] truncate">{user.displayName || '-'}</div>
                                             )}
-
-                                            {editingMemberId === member.id ? (
-                                                <div className="grid grid-cols-1 sm:grid-cols-6 flex-1 px-2 gap-2 items-center">
-                                                    <input value={editingData.name || ''} onChange={(e) => setEditingData({ ...editingData, name: e.target.value })} className="w-full bg-white border border-[#0073ea] rounded px-2 py-1 text-sm focus:outline-none" placeholder="Name" />
-                                                    <select
-                                                        value={editingData.memberType === 'crew' ? 'crew' : 'team'}
-                                                        onChange={(e) => setEditingData({ ...editingData, memberType: e.target.value as MemberType })}
-                                                        className="w-full bg-white border border-[#0073ea] rounded px-2 py-1 text-sm focus:outline-none"
-                                                    >
-                                                        <option value="team">Team Member</option>
-                                                        <option value="crew">Crew</option>
-                                                    </select>
-                                                    <input value={editingData.position || ''} onChange={(e) => setEditingData({ ...editingData, position: e.target.value })} className="w-full bg-white border border-[#0073ea] rounded px-2 py-1 text-sm focus:outline-none" placeholder="Position" />
-                                                    <input value={editingData.department || ''} onChange={(e) => setEditingData({ ...editingData, department: e.target.value })} className="w-full bg-white border border-[#0073ea] rounded px-2 py-1 text-sm focus:outline-none" placeholder="Department" />
-                                                    <input value={editingData.phone || ''} onChange={(e) => setEditingData({ ...editingData, phone: e.target.value })} className="w-full bg-white border border-[#0073ea] rounded px-2 py-1 text-sm focus:outline-none" placeholder="Phone" />
-                                                    <input type="number" min="1" max="168" value={editingData.capacityHoursPerWeek ?? 40} onChange={(e) => setEditingData({ ...editingData, capacityHoursPerWeek: Number.parseInt(e.target.value, 10) || 40 })} className="w-full bg-white border border-[#0073ea] rounded px-2 py-1 text-sm focus:outline-none" placeholder="Capacity" />
-                                                </div>
+                                            <div className="text-[11px] text-[#676879] truncate">UID: {user.id}</div>
+                                        </div>
+                                        {editingSystemUserId === user.id ? (
+                                            <input
+                                                value={editingSystemData.username || ''}
+                                                onChange={(e) => setEditingSystemData({ ...editingSystemData, username: e.target.value })}
+                                                className="w-full bg-white border border-[#0073ea] rounded px-2 py-1 text-[12px] outline-none"
+                                                placeholder="Username"
+                                            />
+                                        ) : (
+                                            <div className="text-[12px] text-[#323338] truncate">{user.username || '-'}</div>
+                                        )}
+                                        {editingSystemUserId === user.id ? (
+                                            <input
+                                                value={editingSystemData.email || ''}
+                                                onChange={(e) => setEditingSystemData({ ...editingSystemData, email: e.target.value })}
+                                                className="w-full bg-white border border-[#0073ea] rounded px-2 py-1 text-[12px] outline-none"
+                                                placeholder="Email"
+                                            />
+                                        ) : (
+                                            <div className="text-[12px] text-[#323338] truncate">{user.email || '-'}</div>
+                                        )}
+                                        {editingSystemUserId === user.id ? (
+                                            <input
+                                                value={editingSystemData.phone || ''}
+                                                onChange={(e) => setEditingSystemData({ ...editingSystemData, phone: e.target.value })}
+                                                className="w-full bg-white border border-[#0073ea] rounded px-2 py-1 text-[12px] outline-none"
+                                                placeholder="Phone"
+                                            />
+                                        ) : (
+                                            <div className="text-[12px] text-[#323338] truncate">{user.phone || '-'}</div>
+                                        )}
+                                        <div className="min-w-0">
+                                            {editingSystemUserId === user.id ? (
+                                                <input
+                                                    value={editingSystemData.lineUserId || ''}
+                                                    onChange={(e) => setEditingSystemData({ ...editingSystemData, lineUserId: e.target.value })}
+                                                    className="w-full bg-white border border-[#0073ea] rounded px-2 py-1 text-[12px] outline-none"
+                                                    placeholder="LINE User ID"
+                                                />
+                                            ) : user.lineUserId ? (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => void handleSystemLineBadgeClick(user)}
+                                                    disabled={systemLineActionUserId === user.id}
+                                                    title={user.lineUserId}
+                                                    className="inline-flex items-center gap-1 rounded-full bg-[#e6faef] text-[#00a66a] border border-[#b8ebd2] px-2 py-0.5 text-[10px] font-bold hover:bg-[#d9f5e8] disabled:opacity-60"
+                                                >
+                                                    {systemLineActionUserId === user.id ? (
+                                                        <>
+                                                            <Loader2 className="w-3 h-3 animate-spin" />
+                                                            ...
+                                                        </>
+                                                    ) : systemLineCopiedUserId === user.id ? (
+                                                        <>
+                                                            <Check className="w-3 h-3" />
+                                                            Copied
+                                                        </>
+                                                    ) : (
+                                                        <>
+                                                            <CheckCircle2 className="w-3 h-3" />
+                                                            LINE
+                                                        </>
+                                                    )}
+                                                </button>
                                             ) : (
-                                                <div className="grid grid-cols-1 sm:grid-cols-7 flex-1 px-2 gap-2 items-center min-w-0">
-                                                    <div className="font-medium text-[#323338] min-w-0 flex items-center gap-2">
-                                                        <span className="truncate">{member.name}</span>
-                                                        {member.lineUserId && (
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => void handleLineBadgeClick(member)}
-                                                                disabled={lineActionMemberId === member.id}
-                                                                title={member.lineUserId ? `Copy LINE User ID: ${member.lineUserId}` : 'LINE not linked'}
-                                                                className="shrink-0 inline-flex items-center gap-1 rounded-full bg-[#e6faef] text-[#00a66a] border border-[#b8ebd2] px-2 py-0.5 text-[10px] font-bold hover:bg-[#d9f5e8] disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
-                                                            >
-                                                                {lineActionMemberId === member.id ? (
-                                                                    <>
-                                                                        <Loader2 className="w-3 h-3 animate-spin" />
-                                                                        ...
-                                                                    </>
-                                                                ) : lineCopiedMemberId === member.id ? (
-                                                                    <>
-                                                                        <Check className="w-3 h-3" />
-                                                                        Copied
-                                                                    </>
-                                                                ) : (
-                                                                    <>
-                                                                        <CheckCircle2 className="w-3 h-3" />
-                                                                        LINE
-                                                                    </>
-                                                                )}
-                                                            </button>
-                                                        )}
-                                                    </div>
-                                                    <div>
-                                                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full border text-[10px] font-bold ${getMemberTypeBadgeClass(getMemberType(member))}`}>
-                                                            {getMemberTypeLabel(getMemberType(member))}
-                                                        </span>
-                                                    </div>
-                                                    <div className="text-[#676879] text-sm truncate">{member.position}</div>
-                                                    <div className="text-[#676879] text-sm truncate">{member.department}</div>
-                                                    <div className="text-[#676879] text-sm truncate">{member.phone}</div>
-                                                    <div className="text-[#676879] text-sm truncate">{capacity} h/wk</div>
-                                                    <div className={`text-sm font-semibold truncate ${overloaded ? 'text-[#e2445c]' : 'text-[#0052cc]'}`}>
-                                                        {load.assignedHours} h • {load.taskCount} open tasks
-                                                    </div>
-                                                </div>
+                                                <div className="text-[12px] text-[#676879]">-</div>
                                             )}
                                         </div>
-
-                                        <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
-                                            {editingMemberId === member.id ? (
+                                        <div>
+                                            {editingSystemUserId === user.id ? (
+                                                <select
+                                                    value={editingSystemData.authProvider === 'line' ? 'line' : 'password'}
+                                                    onChange={(e) => setEditingSystemData({ ...editingSystemData, authProvider: e.target.value as SystemUserAccount['authProvider'] })}
+                                                    className="w-full bg-white border border-[#0073ea] rounded px-2 py-1 text-[12px] outline-none"
+                                                >
+                                                    <option value="password">User/Pass</option>
+                                                    <option value="line">LINE</option>
+                                                </select>
+                                            ) : (
+                                                <span className={`inline-flex items-center px-2 py-0.5 rounded-full border text-[10px] font-bold ${user.authProvider === 'password' ? 'bg-[#eef4ff] text-[#0052cc] border-[#c9ddff]' : 'bg-[#e6faef] text-[#008a59] border-[#b8ebd2]'}`}>
+                                                    {user.authProvider === 'password' ? 'User/Pass' : 'LINE'}
+                                                </span>
+                                            )}
+                                        </div>
+                                        <div className="text-[12px] text-[#676879] truncate">{formatDateTime(user.lastLoginAt)}</div>
+                                        <div className="text-[12px] text-[#676879] truncate">{formatDateTime(user.createdAt)}</div>
+                                        <div className="flex items-center justify-end gap-1.5">
+                                            {editingSystemUserId === user.id ? (
                                                 <>
-                                                    <button onClick={saveEditingMember} className="text-[#00c875] p-2 hover:bg-[#e6faef] rounded-md transition-all"><Check className="w-5 h-5" /></button>
-                                                    <button onClick={cancelEditingMember} className="text-[#676879] p-2 hover:bg-[#e6e9ef] rounded-md transition-all"><X className="w-5 h-5" /></button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => void saveEditingSystemUser()}
+                                                        className="text-[#00c875] p-1.5 hover:bg-[#e6faef] rounded-md transition-all"
+                                                    >
+                                                        <Check className="w-4 h-4" />
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={cancelEditingSystemUser}
+                                                        className="text-[#676879] p-1.5 hover:bg-[#e6e9ef] rounded-md transition-all"
+                                                    >
+                                                        <X className="w-4 h-4" />
+                                                    </button>
                                                 </>
                                             ) : (
                                                 <>
-                                                    <button onClick={() => startEditingMember(member)} className="text-[#676879] p-2 hover:bg-[#e6e9ef] rounded-md transition-all sm:opacity-0 sm:group-hover:opacity-100"><Edit2 className="w-5 h-5" /></button>
-                                                    <button onClick={() => openDeleteModal(member)} className="text-[#e2445c] p-2 hover:bg-[#ffebef] rounded-md transition-all sm:opacity-0 sm:group-hover:opacity-100"><Trash2 className="w-5 h-5" /></button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => startEditingSystemUser(user)}
+                                                        className="text-[#676879] p-1.5 hover:bg-[#e6e9ef] rounded-md transition-all"
+                                                    >
+                                                        <Edit2 className="w-4 h-4" />
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => void deleteSystemUser(user)}
+                                                        className="text-[#e2445c] p-1.5 hover:bg-[#ffebef] rounded-md transition-all"
+                                                    >
+                                                        <Trash2 className="w-4 h-4" />
+                                                    </button>
                                                 </>
                                             )}
                                         </div>
                                     </div>
-                                );
-                            })}
+                                ))}
+                                {filteredSystemUsers.length === 0 && (
+                                    <div className="p-8 text-center text-[#676879]">No system users found.</div>
+                                )}
+                            </div>
+                        ) : (
+                            <div className="divide-y divide-[#e6e9ef]">
+                                {filteredTeamMembers.map((member) => {
+                                    const load = loadByMemberName.get(member.name) || { taskCount: 0, assignedHours: 0 };
+                                    const capacity = member.capacityHoursPerWeek ?? 40;
+                                    const overloaded = load.assignedHours > capacity;
 
-                            {filteredTeamMembers.length === 0 && (
-                                <div className="p-8 text-center text-[#676879]">
-                                    {memberTab === 'team' ? 'No owner found.' : 'No crew found.'}
-                                </div>
-                            )}
-                        </div>
+                                    return (
+                                        <div key={member.id} className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-4 hover:bg-[#f8fafc] transition-colors group gap-3">
+                                            <div className="flex items-center gap-4 flex-1 min-w-0">
+                                                {editingMemberId === member.id ? (
+                                                    <div className="shrink-0">
+                                                        <input type="file" accept="image/*" ref={editAvatarRef} onChange={handleEditAvatarUpload} className="hidden" />
+                                                        <button onClick={() => editAvatarRef.current?.click()} className="relative group/avatar" title="Change Photo">
+                                                            {(editingData.avatar || member.avatar) ? (
+                                                                <div className="relative">
+                                                                    <img src={editingData.avatar || member.avatar} alt={member.name} referrerPolicy="no-referrer" className="w-10 h-10 rounded-full object-cover border-2 border-[#0073ea] shadow-sm" />
+                                                                    <div className="absolute inset-0 bg-black/40 rounded-full opacity-0 group-hover/avatar:opacity-100 transition-opacity flex items-center justify-center">
+                                                                        <Camera className="w-3.5 h-3.5 text-white" />
+                                                                    </div>
+                                                                </div>
+                                                            ) : (
+                                                                <div className="w-10 h-10 rounded-full bg-[#e6e9ef] border-2 border-dashed border-[#0073ea] flex items-center justify-center text-[#0073ea]"><Camera className="w-4 h-4" /></div>
+                                                            )}
+                                                        </button>
+                                                    </div>
+                                                ) : (
+                                                    <div className="shrink-0 relative group/avatar">
+                                                        <input type="file" accept="image/*" className="hidden" id={`avatar-upload-${member.id}`} onChange={async (e) => {
+                                                            const file = e.target.files?.[0];
+                                                            if (file) await handleAvatarChangeForMember(member.id, file);
+                                                            e.target.value = '';
+                                                        }} />
+                                                        <label htmlFor={`avatar-upload-${member.id}`} className="cursor-pointer block relative">
+                                                            <AvatarDisplay member={member} size={40} />
+                                                            <div className="absolute inset-0 bg-black/40 rounded-full opacity-0 group-hover/avatar:opacity-100 transition-opacity flex items-center justify-center"><Camera className="w-3.5 h-3.5 text-white" /></div>
+                                                        </label>
+                                                    </div>
+                                                )}
+
+                                                {editingMemberId === member.id ? (
+                                                    <div className="grid grid-cols-1 sm:grid-cols-6 flex-1 px-2 gap-2 items-center">
+                                                        <input value={editingData.name || ''} onChange={(e) => setEditingData({ ...editingData, name: e.target.value })} className="w-full bg-white border border-[#0073ea] rounded px-2 py-1 text-sm focus:outline-none" placeholder="Name" />
+                                                        <select
+                                                            value={editingData.memberType === 'crew' ? 'crew' : 'team'}
+                                                            onChange={(e) => setEditingData({ ...editingData, memberType: e.target.value as MemberType })}
+                                                            className="w-full bg-white border border-[#0073ea] rounded px-2 py-1 text-sm focus:outline-none"
+                                                        >
+                                                            <option value="team">Team Member</option>
+                                                            <option value="crew">Crew</option>
+                                                        </select>
+                                                        <input value={editingData.position || ''} onChange={(e) => setEditingData({ ...editingData, position: e.target.value })} className="w-full bg-white border border-[#0073ea] rounded px-2 py-1 text-sm focus:outline-none" placeholder="Position" />
+                                                        <input value={editingData.department || ''} onChange={(e) => setEditingData({ ...editingData, department: e.target.value })} className="w-full bg-white border border-[#0073ea] rounded px-2 py-1 text-sm focus:outline-none" placeholder="Department" />
+                                                        <input value={editingData.phone || ''} onChange={(e) => setEditingData({ ...editingData, phone: e.target.value })} className="w-full bg-white border border-[#0073ea] rounded px-2 py-1 text-sm focus:outline-none" placeholder="Phone" />
+                                                        <input type="number" min="1" max="168" value={editingData.capacityHoursPerWeek ?? 40} onChange={(e) => setEditingData({ ...editingData, capacityHoursPerWeek: Number.parseInt(e.target.value, 10) || 40 })} className="w-full bg-white border border-[#0073ea] rounded px-2 py-1 text-sm focus:outline-none" placeholder="Capacity" />
+                                                    </div>
+                                                ) : (
+                                                    <div className="grid grid-cols-1 sm:grid-cols-7 flex-1 px-2 gap-2 items-center min-w-0">
+                                                        <div className="font-medium text-[#323338] min-w-0 flex items-center gap-2">
+                                                            <span className="truncate">{member.name}</span>
+                                                            {member.lineUserId && (
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => void handleLineBadgeClick(member)}
+                                                                    disabled={lineActionMemberId === member.id}
+                                                                    title={member.lineUserId ? `Copy LINE User ID: ${member.lineUserId}` : 'LINE not linked'}
+                                                                    className="shrink-0 inline-flex items-center gap-1 rounded-full bg-[#e6faef] text-[#00a66a] border border-[#b8ebd2] px-2 py-0.5 text-[10px] font-bold hover:bg-[#d9f5e8] disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
+                                                                >
+                                                                    {lineActionMemberId === member.id ? (
+                                                                        <>
+                                                                            <Loader2 className="w-3 h-3 animate-spin" />
+                                                                            ...
+                                                                        </>
+                                                                    ) : lineCopiedMemberId === member.id ? (
+                                                                        <>
+                                                                            <Check className="w-3 h-3" />
+                                                                            Copied
+                                                                        </>
+                                                                    ) : (
+                                                                        <>
+                                                                            <CheckCircle2 className="w-3 h-3" />
+                                                                            LINE
+                                                                        </>
+                                                                    )}
+                                                                </button>
+                                                            )}
+                                                        </div>
+                                                        <div>
+                                                            <span className={`inline-flex items-center px-2 py-0.5 rounded-full border text-[10px] font-bold ${getMemberTypeBadgeClass(getMemberType(member))}`}>
+                                                                {getMemberTypeLabel(getMemberType(member))}
+                                                            </span>
+                                                        </div>
+                                                        <div className="text-[#676879] text-sm truncate">{member.position}</div>
+                                                        <div className="text-[#676879] text-sm truncate">{member.department}</div>
+                                                        <div className="text-[#676879] text-sm truncate">{member.phone}</div>
+                                                        <div className="text-[#676879] text-sm truncate">{capacity} h/wk</div>
+                                                        <div className={`text-sm font-semibold truncate ${overloaded ? 'text-[#e2445c]' : 'text-[#0052cc]'}`}>
+                                                            {load.assignedHours} h • {load.taskCount} open tasks
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </div>
+
+                                            <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
+                                                {editingMemberId === member.id ? (
+                                                    <>
+                                                        <button onClick={saveEditingMember} className="text-[#00c875] p-2 hover:bg-[#e6faef] rounded-md transition-all"><Check className="w-5 h-5" /></button>
+                                                        <button onClick={cancelEditingMember} className="text-[#676879] p-2 hover:bg-[#e6e9ef] rounded-md transition-all"><X className="w-5 h-5" /></button>
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <button onClick={() => startEditingMember(member)} className="text-[#676879] p-2 hover:bg-[#e6e9ef] rounded-md transition-all sm:opacity-0 sm:group-hover:opacity-100"><Edit2 className="w-5 h-5" /></button>
+                                                        <button onClick={() => openDeleteModal(member)} className="text-[#e2445c] p-2 hover:bg-[#ffebef] rounded-md transition-all sm:opacity-0 sm:group-hover:opacity-100"><Trash2 className="w-5 h-5" /></button>
+                                                    </>
+                                                )}
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+
+                                {filteredTeamMembers.length === 0 && (
+                                    <div className="p-8 text-center text-[#676879]">
+                                        {memberTab === 'team' ? 'No owner found.' : 'No crew found.'}
+                                    </div>
+                                )}
+                            </div>
+                        )}
                     </div>
                 </div>
             </div>

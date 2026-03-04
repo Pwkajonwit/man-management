@@ -1,18 +1,31 @@
 'use client';
 
-import React, { useCallback } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import UserManagementView from '@/components/UserManagementView';
 import { useAppContext } from '@/contexts/AppContext';
 import {
     deleteTeamMember as fbDeleteTeamMember,
+    deleteSystemUserAccount as fbDeleteSystemUserAccount,
+    subscribeSystemUserAccounts,
     updateTeamMember as fbUpdateTeamMember,
+    upsertSystemUserAccount,
     upsertTeamMember,
     updateTask as fbUpdateTask,
 } from '@/lib/firestore';
-import { TeamMember } from '@/types/construction';
+import { SystemUserAccount, TeamMember } from '@/types/construction';
 
 export default function UsersPage() {
     const { teamMembers, setTeamMembers, tasks, setTasks, loading, dataSource } = useAppContext();
+    const [systemUsers, setSystemUsers] = useState<SystemUserAccount[]>([]);
+
+    useEffect(() => {
+        if (dataSource !== 'firebase') return;
+
+        const unsubscribe = subscribeSystemUserAccounts((users) => {
+            setSystemUsers(users);
+        });
+        return () => unsubscribe();
+    }, [dataSource]);
 
     const handleAddMember = useCallback(async (member: TeamMember) => {
         setTeamMembers(prev => [...prev, member]);
@@ -126,6 +139,66 @@ export default function UsersPage() {
         }
     }, [dataSource, setTasks, setTeamMembers, tasks, teamMembers]);
 
+    const handleAddSystemUser = useCallback(async (payload: {
+        id?: string;
+        username: string;
+        email: string;
+        displayName: string;
+        authProvider: SystemUserAccount['authProvider'];
+        phone?: string;
+        lineUserId?: string;
+    }) => {
+        if (dataSource !== 'firebase') {
+            alert('System user management is available in Firebase mode only.');
+            return;
+        }
+
+        const id = payload.id?.trim() || `su-${Date.now()}`;
+        const nowIso = new Date().toISOString();
+        try {
+            await upsertSystemUserAccount(id, {
+                username: payload.username.trim(),
+                email: payload.email.trim().toLowerCase(),
+                displayName: payload.displayName.trim(),
+                authProvider: payload.authProvider,
+                phone: payload.phone?.trim() || '',
+                lineUserId: payload.lineUserId?.trim() || '',
+                createdAt: nowIso,
+            });
+        } catch (error) {
+            console.error('Failed to add system user:', error);
+            alert('Cannot add system user. Please try again.');
+        }
+    }, [dataSource]);
+
+    const handleUpdateSystemUser = useCallback(async (userId: string, patch: Partial<SystemUserAccount>) => {
+        if (dataSource !== 'firebase') {
+            alert('System user management is available in Firebase mode only.');
+            return;
+        }
+        try {
+            const safePatch: Partial<SystemUserAccount> = { ...patch };
+            delete safePatch.id;
+            await upsertSystemUserAccount(userId, safePatch);
+        } catch (error) {
+            console.error('Failed to update system user:', error);
+            alert('Cannot update system user. Please try again.');
+        }
+    }, [dataSource]);
+
+    const handleDeleteSystemUser = useCallback(async (userId: string) => {
+        if (dataSource !== 'firebase') {
+            alert('System user management is available in Firebase mode only.');
+            return;
+        }
+        try {
+            await fbDeleteSystemUserAccount(userId);
+        } catch (error) {
+            console.error('Failed to delete system user:', error);
+            alert('Cannot delete system user. Please try again.');
+        }
+    }, [dataSource]);
+
     if (loading) {
         return (
             <div className="flex items-center justify-center min-h-screen bg-white">
@@ -137,10 +210,14 @@ export default function UsersPage() {
     return (
         <UserManagementView
             teamMembers={teamMembers}
+            systemUsers={dataSource === 'firebase' ? systemUsers : []}
             tasks={tasks}
             onAddMember={handleAddMember}
             onUpdateMember={handleUpdateMember}
             onDeleteMember={handleDeleteMember}
+            onAddSystemUser={handleAddSystemUser}
+            onUpdateSystemUser={handleUpdateSystemUser}
+            onDeleteSystemUser={handleDeleteSystemUser}
         />
     );
 }
