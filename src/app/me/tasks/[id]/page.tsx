@@ -8,6 +8,7 @@ import {
     AlertTriangle, ArrowLeft, CalendarDays, CheckCircle2, Clock3,
     CheckSquare, Square, Paperclip, FileText, Image as ImageIcon, File, Download, MessageSquare, Plus
 } from 'lucide-react';
+import LinearLoadingScreen from '@/components/LinearLoadingScreen';
 import { useAppContext } from '@/contexts/AppContext';
 import { getStatusColor, getStatusLabel } from '@/utils/statusUtils';
 import { isTaskAssignedToCurrentUser } from '@/utils/taskOwnerUtils';
@@ -103,13 +104,7 @@ export default function UserTaskDetailPage() {
         return [...updates].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
     }, [taskId, taskUpdates]);
 
-    if (loading) {
-        return (
-            <div className="flex items-center justify-center min-h-screen bg-[#f5f6f8]">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#0073ea]"></div>
-            </div>
-        );
-    }
+    if (loading) return <LinearLoadingScreen message="Loading task details..." />;
 
     const task = tasks.find((item) => item.id === taskId);
     if (!task) {
@@ -146,6 +141,25 @@ export default function UserTaskDetailPage() {
     }
 
     const project = projects.find((item) => item.id === task.projectId);
+    const isProjectCompleted = project?.status === 'completed';
+
+    if (isProjectCompleted) {
+        return (
+            <div className="min-h-screen bg-[#f5f6f8] p-4 flex items-center justify-center">
+                <div className="bg-white border border-[#d0d4e4] rounded-xl p-5 text-center max-w-sm w-full">
+                    <p className="text-[15px] font-semibold text-[#323338]">Project is completed</p>
+                    <p className="mt-1 text-[13px] text-[#676879]">Task details are hidden for completed projects.</p>
+                    <Link
+                        href="/me"
+                        className="mt-3 inline-flex px-3 py-2 rounded-lg bg-[#0073ea] text-white text-[13px] font-semibold"
+                    >
+                        Back to My Tasks
+                    </Link>
+                </div>
+            </div>
+        );
+    }
+
     const overdue = isOverdue(task);
     const dueSoon = isDueSoon(task);
     const taskSubtasks = subtasks[taskId] || [];

@@ -1,5 +1,6 @@
 ﻿import React, { useMemo } from 'react';
-import { AlertTriangle, Clock3, UserX2, UsersRound } from 'lucide-react';
+import { AlertTriangle, ChevronDown, Clock3, UserX2, UsersRound } from 'lucide-react';
+import Link from 'next/link';
 import { addDays, isPast } from 'date-fns';
 import { Task, TeamMember } from '@/types/construction';
 import { getTaskOwnerNames, isTaskUnassigned } from '@/utils/taskOwnerUtils';
@@ -9,7 +10,26 @@ interface DashboardOverviewViewProps {
     teamMembers: TeamMember[];
 }
 
+interface MemberLoadEntry {
+    member: TeamMember;
+    memberTasks: Task[];
+    openTaskCount: number;
+    assignedHours: number;
+    capacity: number;
+    utilization: number;
+    overdue: number;
+    completed: number;
+    inProgress: number;
+}
+
+const PREVIEW_MEMBER_LIMIT = 8;
+
 export default function DashboardOverviewView({ tasks, teamMembers }: DashboardOverviewViewProps) {
+    const [expandedGroups, setExpandedGroups] = React.useState<{ team: boolean; crew: boolean }>({
+        team: false,
+        crew: false,
+    });
+
     const metrics = useMemo(() => {
         const now = new Date();
         const dueSoonBoundary = addDays(now, 2);
@@ -33,7 +53,7 @@ export default function DashboardOverviewView({ tasks, teamMembers }: DashboardO
 
         const unassignedTasks = tasks.filter((task) => isTaskUnassigned(task, teamMembers));
 
-        const buildMemberLoad = (members: TeamMember[]) =>
+        const buildMemberLoad = (members: TeamMember[]): MemberLoadEntry[] =>
             members.map((member) => {
                 const memberTasks = tasks.filter((task) => getTaskOwnerNames(task, teamMembers).includes(member.name));
                 const openTasks = memberTasks.filter((task) => !isTaskDone(task));
@@ -77,6 +97,114 @@ export default function DashboardOverviewView({ tasks, teamMembers }: DashboardO
         };
     }, [tasks, teamMembers]);
 
+    const getUtilizationTone = (utilization: number) => {
+        if (utilization > 100) {
+            return {
+                text: 'text-[#e2445c]',
+                bg: 'bg-[#ffebef]',
+                bar: 'bg-[#e2445c]',
+            };
+        }
+        if (utilization >= 85) {
+            return {
+                text: 'text-[#fdab3d]',
+                bg: 'bg-[#fff6e6]',
+                bar: 'bg-[#fdab3d]',
+            };
+        }
+        return {
+            text: 'text-[#00a65a]',
+            bg: 'bg-[#e6faef]',
+            bar: 'bg-[#00c875]',
+        };
+    };
+
+    const renderWorkloadGroup = (
+        label: 'Team' | 'Crew',
+        groupKey: 'team' | 'crew',
+        entries: MemberLoadEntry[],
+        headerClassName: string
+    ) => {
+        if (entries.length === 0) return null;
+        const expanded = expandedGroups[groupKey];
+        const visibleEntries = expanded ? entries : entries.slice(0, PREVIEW_MEMBER_LIMIT);
+        const hiddenCount = Math.max(entries.length - PREVIEW_MEMBER_LIMIT, 0);
+
+        return (
+            <div>
+                <div className={`px-5 py-2 text-[11px] font-bold tracking-wide uppercase flex items-center justify-between ${headerClassName}`}>
+                    <span>{label}</span>
+                    <span className="text-[10px] font-semibold normal-case opacity-90">{entries.length} people</span>
+                </div>
+
+                <div className="overflow-x-auto">
+                    <table className="w-full min-w-[560px]">
+                        <thead>
+                            <tr className="text-[10px] uppercase tracking-wider text-[#6f7683] bg-[#fafbfc]">
+                                <th className="px-5 py-2 text-left font-semibold">Member</th>
+                                <th className="px-3 py-2 text-left font-semibold">Load</th>
+                                <th className="px-3 py-2 text-left font-semibold">Util</th>
+                                <th className="px-3 py-2 text-left font-semibold">Tasks</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-[#eef1f5]">
+                            {visibleEntries.map((entry) => {
+                                const tone = getUtilizationTone(entry.utilization);
+                                return (
+                                    <tr key={`${groupKey}-${entry.member.id}`} className="hover:bg-[#f9fafb]">
+                                        <td className="px-5 py-2.5">
+                                            <div className="min-w-0">
+                                                <div className="text-[13px] font-semibold text-[#323338] truncate">{entry.member.name}</div>
+                                                <div className="text-[11px] text-[#676879] truncate">{entry.member.position || '-'}</div>
+                                            </div>
+                                        </td>
+                                        <td className="px-3 py-2.5 align-top">
+                                            <div className="text-[12px] font-semibold text-[#323338]">
+                                                {entry.assignedHours}h / {entry.capacity}h
+                                            </div>
+                                            <div className="mt-1 h-1.5 rounded-full bg-[#e7edf5] overflow-hidden">
+                                                <div
+                                                    className={`h-full rounded-full ${tone.bar}`}
+                                                    style={{ width: `${Math.min(entry.utilization, 100)}%` }}
+                                                />
+                                            </div>
+                                        </td>
+                                        <td className="px-3 py-2.5 align-top">
+                                            <span className={`inline-flex px-2 py-0.5 rounded-full text-[11px] font-semibold ${tone.bg} ${tone.text}`}>
+                                                {entry.utilization}%
+                                            </span>
+                                        </td>
+                                        <td className="px-3 py-2.5 align-top">
+                                            <div className="text-[12px] font-semibold text-[#323338]">{entry.openTaskCount} open</div>
+                                            {entry.overdue > 0 ? (
+                                                <div className="text-[11px] text-[#e2445c]">{entry.overdue} overdue</div>
+                                            ) : (
+                                                <div className="text-[11px] text-[#8a8f99]">on track</div>
+                                            )}
+                                        </td>
+                                    </tr>
+                                );
+                            })}
+                        </tbody>
+                    </table>
+                </div>
+
+                {hiddenCount > 0 && (
+                    <div className="px-5 py-2 border-t border-[#eef1f5] bg-[#fcfdff]">
+                        <button
+                            type="button"
+                            onClick={() => setExpandedGroups((prev) => ({ ...prev, [groupKey]: !prev[groupKey] }))}
+                            className="inline-flex items-center gap-1 text-[12px] font-semibold text-[#0060c0] hover:underline"
+                        >
+                            <ChevronDown className={`w-3.5 h-3.5 transition-transform ${expanded ? 'rotate-180' : ''}`} />
+                            {expanded ? 'Show less' : `Show ${hiddenCount} more`}
+                        </button>
+                    </div>
+                )}
+            </div>
+        );
+    };
+
     return (
         <div className="flex-1 flex flex-col min-w-0 bg-[#f5f6f8]">
             <header className="min-h-[64px] bg-white flex items-center px-4 sm:px-6 lg:px-8 py-3 border-b border-[#d0d4e4] gap-4 shrink-0 transition-all">
@@ -118,85 +246,8 @@ export default function DashboardOverviewView({ tasks, teamMembers }: DashboardO
                             </div>
 
                             <div className="divide-y divide-[#e6e9ef]">
-                                {metrics.teamLoad.length > 0 && (
-                                    <div className="px-5 py-2 bg-[#f8f9fc] text-[11px] font-bold tracking-wide text-[#676879] uppercase">
-                                        Team
-                                    </div>
-                                )}
-                                {metrics.teamLoad.map((entry) => {
-                                    const overload = entry.utilization > 100;
-                                    const warning = entry.utilization >= 85 && entry.utilization <= 100;
-                                    const statusColor = overload ? 'text-[#e2445c]' : warning ? 'text-[#fdab3d]' : 'text-[#00c875]';
-                                    const statusBg = overload ? 'bg-[#ffebef]' : warning ? 'bg-[#fff6e6]' : 'bg-[#e6faef]';
-
-                                    return (
-                                        <div key={`team-${entry.member.id}`} className="px-5 py-4 hover:bg-[#f9fafb] transition-colors">
-                                            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
-                                                <div className="min-w-0 flex-1">
-                                                    <div className="flex items-center gap-2">
-                                                        <span className="text-[14px] font-semibold text-[#323338] truncate">{entry.member.name}</span>
-                                                        <span className={`text-[11px] px-2 py-0.5 rounded-full font-semibold ${statusBg} ${statusColor}`}>
-                                                            {entry.utilization}%
-                                                        </span>
-                                                    </div>
-                                                    <div className="text-[12px] text-[#676879] mt-0.5 truncate">{entry.member.position} • {entry.member.department}</div>
-                                                    <div className="mt-2 w-full bg-[#eef1f6] h-2 rounded-full overflow-hidden">
-                                                        <div
-                                                            className={`h-full rounded-full ${overload ? 'bg-[#e2445c]' : warning ? 'bg-[#fdab3d]' : 'bg-[#00c875]'}`}
-                                                            style={{ width: `${Math.min(entry.utilization, 100)}%` }}
-                                                        ></div>
-                                                    </div>
-                                                </div>
-
-                                                <div className="text-left sm:text-right shrink-0">
-                                                    <div className="text-[13px] font-bold text-[#323338]">{entry.assignedHours}h / {entry.capacity}h</div>
-                                                    <div className="text-[11px] text-[#676879] mt-0.5">{entry.openTaskCount} open tasks</div>
-                                                    <div className="text-[11px] text-[#676879] mt-0.5">{entry.inProgress} active • {entry.completed} done</div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    );
-                                })}
-
-                                {metrics.crewLoad.length > 0 && (
-                                    <div className="px-5 py-2 bg-[#fff8ee] text-[11px] font-bold tracking-wide text-[#b05b00] uppercase">
-                                        Crew
-                                    </div>
-                                )}
-                                {metrics.crewLoad.map((entry) => {
-                                    const overload = entry.utilization > 100;
-                                    const warning = entry.utilization >= 85 && entry.utilization <= 100;
-                                    const statusColor = overload ? 'text-[#e2445c]' : warning ? 'text-[#fdab3d]' : 'text-[#00c875]';
-                                    const statusBg = overload ? 'bg-[#ffebef]' : warning ? 'bg-[#fff6e6]' : 'bg-[#e6faef]';
-
-                                    return (
-                                        <div key={`crew-${entry.member.id}`} className="px-5 py-4 hover:bg-[#f9fafb] transition-colors">
-                                            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
-                                                <div className="min-w-0 flex-1">
-                                                    <div className="flex items-center gap-2">
-                                                        <span className="text-[14px] font-semibold text-[#323338] truncate">{entry.member.name}</span>
-                                                        <span className={`text-[11px] px-2 py-0.5 rounded-full font-semibold ${statusBg} ${statusColor}`}>
-                                                            {entry.utilization}%
-                                                        </span>
-                                                    </div>
-                                                    <div className="text-[12px] text-[#676879] mt-0.5 truncate">{entry.member.position} • {entry.member.department}</div>
-                                                    <div className="mt-2 w-full bg-[#eef1f6] h-2 rounded-full overflow-hidden">
-                                                        <div
-                                                            className={`h-full rounded-full ${overload ? 'bg-[#e2445c]' : warning ? 'bg-[#fdab3d]' : 'bg-[#00c875]'}`}
-                                                            style={{ width: `${Math.min(entry.utilization, 100)}%` }}
-                                                        ></div>
-                                                    </div>
-                                                </div>
-
-                                                <div className="text-left sm:text-right shrink-0">
-                                                    <div className="text-[13px] font-bold text-[#323338]">{entry.assignedHours}h / {entry.capacity}h</div>
-                                                    <div className="text-[11px] text-[#676879] mt-0.5">{entry.openTaskCount} open tasks</div>
-                                                    <div className="text-[11px] text-[#676879] mt-0.5">{entry.inProgress} active • {entry.completed} done</div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    );
-                                })}
+                                {renderWorkloadGroup('Team', 'team', metrics.teamLoad, 'bg-[#f8f9fc] text-[#676879]')}
+                                {renderWorkloadGroup('Crew', 'crew', metrics.crewLoad, 'bg-[#fff8ee] text-[#b05b00]')}
 
                                 {metrics.teamLoad.length === 0 && metrics.crewLoad.length === 0 && (
                                     <div className="px-5 py-6 text-[13px] text-[#676879]">No team members or crew found.</div>
@@ -211,10 +262,14 @@ export default function DashboardOverviewView({ tasks, teamMembers }: DashboardO
                                 </div>
                                 <div className="mt-3 space-y-2">
                                     {metrics.overdueTasks.slice(0, 5).map((task) => (
-                                        <div key={task.id} className="p-2.5 rounded-lg bg-[#fff5f6] border border-[#ffd9de]">
+                                        <Link
+                                            key={task.id}
+                                            href={`/tasks/${task.id}`}
+                                            className="block p-2.5 rounded-lg bg-[#fff5f6] border border-[#ffd9de] hover:bg-[#ffecef] transition-colors"
+                                        >
                                             <div className="text-[12px] font-semibold text-[#323338] truncate">{task.name}</div>
                                             <div className="text-[11px] text-[#e2445c] mt-1">Due: {task.planEndDate}</div>
-                                        </div>
+                                        </Link>
                                     ))}
                                     {metrics.overdueTasks.length === 0 && (
                                         <div className="text-[12px] text-[#676879]">No overdue tasks.</div>
@@ -228,10 +283,14 @@ export default function DashboardOverviewView({ tasks, teamMembers }: DashboardO
                                 </div>
                                 <div className="mt-3 space-y-2">
                                     {metrics.dueSoonTasks.slice(0, 5).map((task) => (
-                                        <div key={task.id} className="p-2.5 rounded-lg bg-[#fff8ee] border border-[#ffe0b2]">
+                                        <Link
+                                            key={task.id}
+                                            href={`/tasks/${task.id}`}
+                                            className="block p-2.5 rounded-lg bg-[#fff8ee] border border-[#ffe0b2] hover:bg-[#fff2dd] transition-colors"
+                                        >
                                             <div className="text-[12px] font-semibold text-[#323338] truncate">{task.name}</div>
                                             <div className="text-[11px] text-[#fdab3d] mt-1">Due: {task.planEndDate}</div>
-                                        </div>
+                                        </Link>
                                     ))}
                                     {metrics.dueSoonTasks.length === 0 && (
                                         <div className="text-[12px] text-[#676879]">No tasks due in 48 hours.</div>

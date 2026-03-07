@@ -103,7 +103,7 @@ export default function TaskDetailPage() {
                 <div className="text-center">
                     <div className="text-5xl mb-4">?</div>
                     <h2 className="text-xl font-bold text-[#323338] mb-2">Task not found</h2>
-                    <button onClick={() => router.push('/')} className="px-4 py-2 bg-[#0073ea] text-white rounded-lg text-sm font-medium hover:bg-[#0060c0] transition-colors">
+                    <button onClick={() => router.push('/workspaces')} className="px-4 py-2 bg-[#0073ea] text-white rounded-lg text-sm font-medium hover:bg-[#0060c0] transition-colors">
                         Back to Board
                     </button>
                 </div>
@@ -162,7 +162,7 @@ export default function TaskDetailPage() {
             {/* Header */}
             <header className="min-h-[64px] bg-white flex flex-wrap items-center px-4 sm:px-6 lg:px-8 py-3 border-b border-[#d0d4e4] gap-3 shrink-0">
                 <button
-                    onClick={() => router.push('/')}
+                    onClick={() => router.push('/workspaces')}
                     className="p-2 hover:bg-[#f5f6f8] rounded-lg text-[#676879] transition-colors"
                 >
                     <ArrowLeft className="w-5 h-5" />

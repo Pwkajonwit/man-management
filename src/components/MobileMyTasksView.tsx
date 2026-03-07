@@ -103,10 +103,17 @@ export default function MobileMyTasksView({
     const profileInitial = profileName.substring(0, 2).toUpperCase();
 
     const myTasks = useMemo(() => {
-        return tasks.filter((task) =>
-            isTaskAssignedToCurrentUser(task, teamMembers, currentUserName, user?.lineUserId, user?.uid)
+        const completedProjectIds = new Set(
+            projects
+                .filter((project) => project.status === 'completed')
+                .map((project) => project.id)
         );
-    }, [tasks, teamMembers, currentUserName, user?.lineUserId, user?.uid]);
+
+        return tasks.filter((task) =>
+            !completedProjectIds.has(task.projectId)
+            && isTaskAssignedToCurrentUser(task, teamMembers, currentUserName, user?.lineUserId, user?.uid)
+        );
+    }, [tasks, projects, teamMembers, currentUserName, user?.lineUserId, user?.uid]);
     const taskOwnerNamesById = useMemo(() => {
         const map = new Map<string, string[]>();
         myTasks.forEach((task) => {
@@ -272,13 +279,15 @@ export default function MobileMyTasksView({
                         return (
                             <div key={task.id} className="bg-white rounded-xl border border-[#cfd9e6] p-3.5 shadow-[0_3px_14px_rgba(22,46,73,0.08)]">
                                 <div className="flex items-start justify-between gap-3">
-                                    <div className="min-w-0">
-                                        <p className="text-[11px] text-[#5f7084] truncate">
+                                    <div className="min-w-0 flex-1">
+                                        <p className="text-[11px] text-[#5f7084] break-words [overflow-wrap:anywhere]">
                                             {project?.name || 'No Project'} • {task.category}
                                         </p>
-                                        <p className="text-[14px] font-semibold text-[#1f3147] leading-snug mt-1">{task.name}</p>
+                                        <p className="text-[14px] font-semibold text-[#1f3147] leading-snug mt-1 break-words [overflow-wrap:anywhere]">
+                                            {task.name}
+                                        </p>
                                     </div>
-                                    <span className={`text-[10px] px-2 py-1 rounded-full font-semibold border border-[#d2ddea] ${getStatusColor(task.status)}`}>
+                                    <span className={`shrink-0 text-[10px] px-2 py-1 rounded-full font-semibold border border-[#d2ddea] ${getStatusColor(task.status)}`}>
                                         {getStatusLabel(task.status)}
                                     </span>
                                 </div>
@@ -321,7 +330,7 @@ export default function MobileMyTasksView({
                                 <div className="mt-3 grid grid-cols-2 gap-2 text-[11px]">
                                     <div className="rounded-lg border border-[#d7e0ea] bg-[#f8fbff] px-2 py-1.5">
                                         <p className="text-[#6c7f93] uppercase tracking-wide text-[10px]">Owner</p>
-                                        <p className="text-[#1f3147] font-semibold truncate">
+                                        <p className="text-[#1f3147] font-semibold break-words [overflow-wrap:anywhere]">
                                             {ownerNames.length > 0 ? ownerNames.join(', ') : 'Unassigned'}
                                         </p>
                                     </div>

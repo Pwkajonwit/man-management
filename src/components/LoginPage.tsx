@@ -1,14 +1,20 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Loader2, ShieldCheck } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 
 interface LoginPageProps {
     allowLineAuth?: boolean;
+    lineOnly?: boolean;
+    autoLineLogin?: boolean;
 }
 
-export default function LoginPage({ allowLineAuth = false }: LoginPageProps) {
+export default function LoginPage({
+    allowLineAuth = false,
+    lineOnly = false,
+    autoLineLogin = false,
+}: LoginPageProps) {
     const {
         loginLine,
         pendingLineProfile,
@@ -27,6 +33,15 @@ export default function LoginPage({ allowLineAuth = false }: LoginPageProps) {
     const [linePhone, setLinePhone] = useState('');
     const [lineBindingError, setLineBindingError] = useState('');
     const [lineBindingSubmitting, setLineBindingSubmitting] = useState(false);
+    const hasAutoStartedLine = useRef(false);
+
+    useEffect(() => {
+        if (!allowLineAuth || !lineOnly || !autoLineLogin) return;
+        if (requiresLinePhoneBinding || hasAutoStartedLine.current) return;
+
+        hasAutoStartedLine.current = true;
+        loginLine();
+    }, [allowLineAuth, lineOnly, autoLineLogin, requiresLinePhoneBinding, loginLine]);
 
     const handleCredentialSubmit = async () => {
         const user = credentialUser.trim();
@@ -133,83 +148,89 @@ export default function LoginPage({ allowLineAuth = false }: LoginPageProps) {
                                         onClick={loginLine}
                                         className="w-full h-11 inline-flex items-center justify-center rounded-xl border border-[#0b63ce] bg-[#eaf2fd] text-[#0b63ce] text-[14px] font-semibold hover:bg-[#dfeaf9]"
                                     >
-                                        Sign In with LINE
+                                        {lineOnly ? 'Continue with LINE' : 'Sign In with LINE'}
                                     </button>
                                 )}
                             </div>
                         )}
 
-                        <div className="flex items-center justify-between">
-                            <p className="text-[13px] font-semibold text-[#1d2936]">
-                                {authMode === 'login' ? 'Sign in with User / Password' : 'Create User / Password'}
-                            </p>
-                            <button
-                                type="button"
-                                onClick={() => {
-                                    setAuthMode(prev => (prev === 'login' ? 'register' : 'login'));
-                                    setAuthError('');
-                                }}
-                                className="text-[12px] text-[#0b63ce] font-semibold hover:underline"
-                            >
-                                {authMode === 'login' ? 'Create account' : 'Back to login'}
-                            </button>
-                        </div>
+                        {!lineOnly && (
+                            <>
+                                <div className="flex items-center justify-between">
+                                    <p className="text-[13px] font-semibold text-[#1d2936]">
+                                        {authMode === 'login' ? 'Sign in with User / Password' : 'Create User / Password'}
+                                    </p>
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setAuthMode(prev => (prev === 'login' ? 'register' : 'login'));
+                                            setAuthError('');
+                                        }}
+                                        className="text-[12px] text-[#0b63ce] font-semibold hover:underline"
+                                    >
+                                        {authMode === 'login' ? 'Create account' : 'Back to login'}
+                                    </button>
+                                </div>
 
-                        {authMode === 'register' && (
-                            <input
-                                type="text"
-                                value={credentialDisplayName}
-                                onChange={e => setCredentialDisplayName(e.target.value)}
-                                placeholder="Display name"
-                                className="w-full h-11 px-4 border border-[#ccd5e1] rounded-xl text-[14px] outline-none focus:ring-2 focus:ring-[#0b63ce]/25 focus:border-[#0b63ce]"
-                            />
+                                {authMode === 'register' && (
+                                    <input
+                                        type="text"
+                                        value={credentialDisplayName}
+                                        onChange={e => setCredentialDisplayName(e.target.value)}
+                                        placeholder="Display name"
+                                        className="w-full h-11 px-4 border border-[#ccd5e1] rounded-xl text-[14px] outline-none focus:ring-2 focus:ring-[#0b63ce]/25 focus:border-[#0b63ce]"
+                                    />
+                                )}
+
+                                <input
+                                    type="text"
+                                    value={credentialUser}
+                                    onChange={e => setCredentialUser(e.target.value)}
+                                    onKeyDown={e => e.key === 'Enter' && !authSubmitting && handleCredentialSubmit()}
+                                    placeholder="User or email (e.g. admin)"
+                                    className="w-full h-11 px-4 border border-[#ccd5e1] rounded-xl text-[14px] outline-none focus:ring-2 focus:ring-[#0b63ce]/25 focus:border-[#0b63ce]"
+                                />
+                                <input
+                                    type="password"
+                                    value={credentialPassword}
+                                    onChange={e => setCredentialPassword(e.target.value)}
+                                    onKeyDown={e => e.key === 'Enter' && !authSubmitting && handleCredentialSubmit()}
+                                    placeholder="Password"
+                                    className="w-full h-11 px-4 border border-[#ccd5e1] rounded-xl text-[14px] outline-none focus:ring-2 focus:ring-[#0b63ce]/25 focus:border-[#0b63ce]"
+                                />
+
+                                {authError && <p className="text-[12px] text-[#c6314a]">{authError}</p>}
+
+                                <button
+                                    type="button"
+                                    onClick={handleCredentialSubmit}
+                                    disabled={authSubmitting}
+                                    className="w-full h-11 inline-flex items-center justify-center gap-2 bg-[#0b63ce] hover:bg-[#0a56b4] text-white font-semibold rounded-xl text-[14px] disabled:bg-[#a0a2b1] disabled:cursor-not-allowed"
+                                >
+                                    {authSubmitting && <Loader2 className="w-4 h-4 animate-spin" />}
+                                    {authMode === 'login' ? 'Sign In' : 'Create Account'}
+                                </button>
+                            </>
                         )}
 
-                        <input
-                            type="text"
-                            value={credentialUser}
-                            onChange={e => setCredentialUser(e.target.value)}
-                            onKeyDown={e => e.key === 'Enter' && !authSubmitting && handleCredentialSubmit()}
-                            placeholder="User or email (e.g. admin)"
-                            className="w-full h-11 px-4 border border-[#ccd5e1] rounded-xl text-[14px] outline-none focus:ring-2 focus:ring-[#0b63ce]/25 focus:border-[#0b63ce]"
-                        />
-                        <input
-                            type="password"
-                            value={credentialPassword}
-                            onChange={e => setCredentialPassword(e.target.value)}
-                            onKeyDown={e => e.key === 'Enter' && !authSubmitting && handleCredentialSubmit()}
-                            placeholder="Password"
-                            className="w-full h-11 px-4 border border-[#ccd5e1] rounded-xl text-[14px] outline-none focus:ring-2 focus:ring-[#0b63ce]/25 focus:border-[#0b63ce]"
-                        />
-
-                        {authError && <p className="text-[12px] text-[#c6314a]">{authError}</p>}
-
-                        <button
-                            type="button"
-                            onClick={handleCredentialSubmit}
-                            disabled={authSubmitting}
-                            className="w-full h-11 inline-flex items-center justify-center gap-2 bg-[#0b63ce] hover:bg-[#0a56b4] text-white font-semibold rounded-xl text-[14px] disabled:bg-[#a0a2b1] disabled:cursor-not-allowed"
-                        >
-                            {authSubmitting && <Loader2 className="w-4 h-4 animate-spin" />}
-                            {authMode === 'login' ? 'Sign In' : 'Create Account'}
-                        </button>
-
                         <div className="rounded-lg bg-[#f5f8fc] border border-[#dde5ef] px-3 py-2">
-                            <p className="text-[11px] text-[#4f5b68]">
-                                Tip: username only will be stored as <code className="font-mono">username@workos.local</code>
-                            </p>
+                            {!lineOnly && (
+                                <p className="text-[11px] text-[#4f5b68]">
+                                    Tip: username only will be stored as <code className="font-mono">username@workos.local</code>
+                                </p>
+                            )}
                             {allowLineAuth && (
                                 <p className="mt-1 text-[11px] text-[#6b7785]">
-                                    LINE login and phone binding are available on this page.
+                                    {lineOnly
+                                        ? 'This page uses LINE login only. If first login, please bind with your phone number in system.'
+                                        : 'LINE login and phone binding are available on this page.'}
                                 </p>
                             )}
                         </div>
                     </main>
                 </div>
 
-                <p className="text-center text-[12px] text-[#8191a2] mt-6">
-                    SRT-HST Task Management System v2.0
-                </p>
+      
             </div>
         </div>
     );

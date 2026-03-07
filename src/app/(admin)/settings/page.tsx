@@ -2,6 +2,7 @@
 
 import React, { useEffect, useMemo, useState } from 'react';
 import { Bell, Clock3, MessageSquare, RefreshCw, Save, Send, Settings2, UserPlus, Users } from 'lucide-react';
+import LinearLoadingScreen from '@/components/LinearLoadingScreen';
 import { useAppContext } from '@/contexts/AppContext';
 import { Task, TeamMember } from '@/types/construction';
 
@@ -295,13 +296,7 @@ export default function SettingsPage() {
         }
     };
 
-    if (loading) {
-        return (
-            <div className="flex items-center justify-center min-h-screen bg-white">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
-            </div>
-        );
-    }
+    if (loading) return <LinearLoadingScreen message="Loading settings..." />;
 
     const isLineConfigChanged =
         lineAdminUserIdDraft.trim() !== (notificationSettings.lineAdminUserId || '').trim() ||

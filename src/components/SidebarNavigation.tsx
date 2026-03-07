@@ -45,7 +45,6 @@ export default function SidebarNavigation({ mobile = false, onNavigate }: Sideba
     const [hideCompletedWorkspaces, setHideCompletedWorkspaces] = useState(true);
 
     const navItems = [
-        { href: '/', label: 'Task Board', icon: Inbox, match: null },
         { href: '/dashboard', label: 'Dashboard', icon: BarChart3, match: '/dashboard' },
         { href: '/my-work', label: 'My Work Tracker', icon: MessageSquare, match: '/my-work' },
         { href: '/users', label: 'Users Management', icon: Users, match: '/users' },
@@ -63,7 +62,7 @@ export default function SidebarNavigation({ mobile = false, onNavigate }: Sideba
             setNewWorkspaceName('');
             setNewWorkspaceCode('');
             setShowCreateWorkspace(false);
-            router.push('/');
+            router.push('/workspaces');
             onNavigate?.();
         } catch (error) {
             console.error('Failed to create workspace:', error);
@@ -112,7 +111,9 @@ export default function SidebarNavigation({ mobile = false, onNavigate }: Sideba
                 <div className="px-4 mb-5">
                     <p className="text-[10px] uppercase tracking-[0.16em] font-semibold text-[#97acc2] px-2 mb-1.5">Navigation</p>
                     {navItems.map((item) => {
-                        const isActive = item.match ? pathname === item.match : false;
+                        const isActive = item.match
+                            ? pathname === item.match || (item.match === '/workspaces' && pathname.startsWith('/tasks/'))
+                            : false;
                         const Icon = item.icon;
                         return (
                             <Link
@@ -221,12 +222,13 @@ export default function SidebarNavigation({ mobile = false, onNavigate }: Sideba
                     {!collapseWorkspaces && (
                         <div className="space-y-1 overflow-x-hidden">
                             {visibleProjects.map((p) => {
-                                const isActive = activeProjectId === p.id && pathname === '/';
+                                const isWorkspaceRoute = pathname === '/workspaces' || pathname.startsWith('/tasks/');
+                                const isActive = activeProjectId === p.id && isWorkspaceRoute;
 
                                 return (
                                     <div key={p.id} className="min-w-0">
                                         <Link
-                                            href="/"
+                                            href="/workspaces"
                                             onClick={() => {
                                                 setActiveProjectId(p.id);
                                                 onNavigate?.();

@@ -192,31 +192,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
         });
     }, []);
 
-    // Local fallback (same mock data as before)
+    // Local fallback with empty state (no demo seed data)
     const loadLocalFallback = useCallback(() => {
-        const now = new Date();
-        const fmt = (d: Date) => d.toISOString().split('T')[0];
-        const sub = (days: number) => new Date(now.getTime() - days * 86400000);
-        const add = (days: number) => new Date(now.getTime() + days * 86400000);
-
-        setProjects([
-            { id: 'proj-1', name: "Monday.com Style Demo", description: "Demo project", owner: "System Admin", status: "in-progress", startDate: fmt(sub(10)), endDate: fmt(add(50)), overallProgress: 35, createdAt: now.toISOString(), updatedAt: now.toISOString() },
-            { id: 'proj-2', name: "Website Redesign", description: "Redesigning company website", owner: "Marketing", status: "planning", startDate: fmt(now), endDate: fmt(add(30)), overallProgress: 0, createdAt: now.toISOString(), updatedAt: now.toISOString() },
-        ]);
-        setTasks([
-            { id: 't1', projectId: 'proj-1', name: "Define MVP scope", category: "Planning", responsible: "Alex M.", planStartDate: fmt(sub(10)), planEndDate: fmt(sub(5)), planDuration: 5, estimatedHours: 16, progress: 100, status: "completed", priority: "high", order: 1, createdAt: now.toISOString(), updatedAt: now.toISOString() },
-            { id: 't2', projectId: 'proj-1', name: "Design Database Schema", category: "Planning", responsible: "Sarah T.", planStartDate: fmt(sub(4)), planEndDate: fmt(sub(1)), planDuration: 6, estimatedHours: 24, progress: 60, status: "in-progress", priority: "urgent", order: 2, createdAt: now.toISOString(), updatedAt: now.toISOString() },
-        ]);
-        setTeamMembers([
-            { id: 'u1', name: "Alex M.", position: "Project Manager", department: "Management", phone: "081-111-1234", capacityHoursPerWeek: 40 },
-            { id: 'u2', name: "Sarah T.", position: "Frontend Developer", department: "Engineering", phone: "082-222-2345", capacityHoursPerWeek: 40 },
-            { id: 'u3', name: "Chris P.", position: "UI/UX Designer", department: "Design", phone: "083-333-3456", capacityHoursPerWeek: 35 },
-            { id: 'u4', name: "Mike D.", position: "Backend Developer", department: "Engineering", phone: "084-444-4567", capacityHoursPerWeek: 40 },
-            { id: 'u5', name: "Anna K.", position: "QA Engineer", department: "Quality Assurance", phone: "085-555-5678", capacityHoursPerWeek: 35 },
-            { id: 'u6', name: "John H.", position: "Security Analyst", department: "Security", phone: "086-666-6789", capacityHoursPerWeek: 30 },
-            { id: 'u7', name: "Customer", position: "Client", department: "External", phone: "-", capacityHoursPerWeek: 20 },
-        ]);
-        setActiveProjectId('proj-1');
+        setProjects([]);
+        setTasks([]);
+        setTeamMembers([]);
+        setActiveProjectId(null);
         setNotificationSettings(DEFAULT_NOTIFICATION_SETTINGS);
     }, []);
 

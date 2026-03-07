@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { addDays, format } from 'date-fns';
 import { ArrowLeft, Printer } from 'lucide-react';
 import { useRouter } from 'next/navigation';
@@ -153,15 +153,17 @@ function ReportTable({ title, rows }: { title: string; rows: ReportRow[] }) {
 export default function CompletedTwoDayReportPage() {
   const router = useRouter();
   const { projects, tasks, teamMembers, activeProjectId } = useAppContext();
+  const [selectedReportDateKey, setSelectedReportDateKey] = useState(() => format(new Date(), 'yyyy-MM-dd'));
 
   const activeProject = projects.find((project) => project.id === activeProjectId);
   const projectTasks = tasks.filter((task) => task.projectId === activeProjectId);
 
   const report = useMemo(() => {
-    const today = new Date();
-    const todayKey = format(today, 'yyyy-MM-dd');
-    const yesterdayDate = addDays(today, -1);
-    const yesterdayKey = format(yesterdayDate, 'yyyy-MM-dd');
+    const selectedDate = new Date(`${selectedReportDateKey}T00:00:00`);
+    const safeSelectedDate = Number.isNaN(selectedDate.getTime()) ? new Date() : selectedDate;
+    const selectedDateKey = format(safeSelectedDate, 'yyyy-MM-dd');
+    const previousDate = addDays(safeSelectedDate, -1);
+    const previousDateKey = format(previousDate, 'yyyy-MM-dd');
     const memberTypeByName = new Map<string, 'team' | 'crew'>(
       teamMembers.map((member) => [member.name, member.memberType === 'crew' ? 'crew' : 'team'])
     );
@@ -197,16 +199,16 @@ export default function CompletedTwoDayReportPage() {
       });
 
     const todayRows = mapRows(
-      projectTasks.filter((task) => isTaskActiveOnDate(task, todayKey))
+      projectTasks.filter((task) => isTaskActiveOnDate(task, selectedDateKey))
     );
     const yesterdayRows = mapRows(
-      projectTasks.filter((task) => isTaskActiveOnDate(task, yesterdayKey))
+      projectTasks.filter((task) => isTaskActiveOnDate(task, previousDateKey))
     );
 
     return {
-      generatedAt: format(today, 'dd/MM/yyyy HH:mm'),
-      todayDateLabel: format(today, 'dd/MM/yyyy'),
-      yesterdayDateLabel: format(yesterdayDate, 'dd/MM/yyyy'),
+      generatedAt: format(new Date(), 'dd/MM/yyyy HH:mm'),
+      todayDateLabel: format(safeSelectedDate, 'dd/MM/yyyy'),
+      yesterdayDateLabel: format(previousDate, 'dd/MM/yyyy'),
       todayRows,
       yesterdayRows,
       todayDoneCount: todayRows.length,
@@ -214,7 +216,7 @@ export default function CompletedTwoDayReportPage() {
       twoDayDoneCount: todayRows.length + yesterdayRows.length,
       totalCompletedCount: projectTasks.filter((task) => task.status === 'completed').length,
     };
-  }, [projectTasks, teamMembers]);
+  }, [projectTasks, selectedReportDateKey, teamMembers]);
 
   return (
     <div className="min-h-screen bg-[#f5f6f8] p-4 sm:p-6 lg:p-8">
@@ -251,14 +253,25 @@ export default function CompletedTwoDayReportPage() {
 
       <div className="max-w-[1120px] mx-auto space-y-4">
         <div className="no-print flex items-center justify-between gap-3 flex-wrap">
-          <button
-            type="button"
-            onClick={() => router.back()}
-            className="inline-flex items-center gap-2 px-3 py-2 text-[13px] rounded-lg border border-[#d0d4e4] bg-white text-[#323338] hover:bg-[#f5f6f8]"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            Back
-          </button>
+          <div className="flex items-center gap-3 flex-wrap">
+            <button
+              type="button"
+              onClick={() => router.back()}
+              className="inline-flex items-center gap-2 px-3 py-2 text-[13px] rounded-lg border border-[#d0d4e4] bg-white text-[#323338] hover:bg-[#f5f6f8]"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              Back
+            </button>
+            <label className="inline-flex items-center gap-2 px-3 py-2 text-[13px] rounded-lg border border-[#d0d4e4] bg-white text-[#323338]">
+              <span className="font-medium">Report Date</span>
+              <input
+                type="date"
+                value={selectedReportDateKey}
+                onChange={(event) => setSelectedReportDateKey(event.target.value)}
+                className="rounded border border-[#d0d4e4] px-2 py-1 text-[13px] outline-none focus:ring-2 focus:ring-[#0073ea]/20 focus:border-[#0073ea]"
+              />
+            </label>
+          </div>
           <button
             type="button"
             onClick={() => window.print()}
@@ -277,7 +290,7 @@ export default function CompletedTwoDayReportPage() {
                 <h1 className="text-[20px] sm:text-[22px] font-black text-white leading-tight">2-Day Work Status Document</h1>
               </div>
               <div className="text-right text-white/90 text-[11px]">
-                <div>Document ID: RPT-2D-{format(new Date(), 'yyyyMMdd')}</div>
+                <div>Document ID: RPT-2D-{selectedReportDateKey.replaceAll('-', '')}</div>
                 <div>Revision: 01</div>
               </div>
             </div>
@@ -302,11 +315,11 @@ export default function CompletedTwoDayReportPage() {
           </header>
 
           <ReportTable
-            title={`Today (${report.todayDateLabel}) - ${report.todayDoneCount} task(s)`}
+            title={`Selected Date (${report.todayDateLabel}) - ${report.todayDoneCount} task(s)`}
             rows={report.todayRows}
           />
           <ReportTable
-            title={`Yesterday (${report.yesterdayDateLabel}) - ${report.yesterdayDoneCount} task(s)`}
+            title={`Previous Day (${report.yesterdayDateLabel}) - ${report.yesterdayDoneCount} task(s)`}
             rows={report.yesterdayRows}
           />
 
