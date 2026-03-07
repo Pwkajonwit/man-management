@@ -334,6 +334,7 @@ function groupTasksByProject(tasks: EmployeeReportPayload['tasks']) {
 function buildFlexMessage(payload: EmployeeReportPayload) {
     const groupedProjectTasks = groupTasksByProject(payload.tasks);
     const multiProjectMode = groupedProjectTasks.length > 1;
+    const generatedAt = new Date().toLocaleString('en-GB', { hour12: false });
     const summaryCards: FlexBoxNode[] = [
         {
             type: 'box',
@@ -343,7 +344,7 @@ function buildFlexMessage(payload: EmployeeReportPayload) {
                 { type: 'text', text: String(payload.summary.total), size: 'lg', weight: 'bold', color: '#111827', align: 'center' },
             ],
             paddingAll: '8px',
-            backgroundColor: '#F9FAFB',
+            backgroundColor: '#EFF6FF',
             cornerRadius: '8px',
             flex: 1,
         },
@@ -355,7 +356,7 @@ function buildFlexMessage(payload: EmployeeReportPayload) {
                 { type: 'text', text: String(payload.summary.overdue), size: 'lg', weight: 'bold', color: '#B42318', align: 'center' },
             ],
             paddingAll: '8px',
-            backgroundColor: '#FEF3F2',
+            backgroundColor: '#FEF2F2',
             cornerRadius: '8px',
             flex: 1,
         },
@@ -367,7 +368,7 @@ function buildFlexMessage(payload: EmployeeReportPayload) {
                 { type: 'text', text: String(payload.summary.dueSoon), size: 'lg', weight: 'bold', color: '#B54708', align: 'center' },
             ],
             paddingAll: '8px',
-            backgroundColor: '#FFFAEB',
+            backgroundColor: '#FFF7ED',
             cornerRadius: '8px',
             flex: 1,
         },
@@ -403,12 +404,25 @@ function buildFlexMessage(payload: EmployeeReportPayload) {
 
     const bodyContents: Array<FlexTextNode | FlexBoxNode> = [
         {
+            type: 'box',
+            layout: 'vertical',
+            paddingAll: '12px',
+            backgroundColor: '#EEF3F8',
+            cornerRadius: '10px',
+            contents: [
+                { type: 'text', text: 'Business Report', size: 'sm', color: '#475467', weight: 'bold' },
+                { type: 'text', text: 'Employee Workload Summary', size: 'md', weight: 'bold', color: '#0F172A', margin: 'sm' },
+                { type: 'text', text: `Generated: ${generatedAt}`, size: 'xs', color: '#475467', margin: 'sm' },
+            ],
+        },
+        {
             type: 'text',
             text: `${payload.employeeName} - ${payload.periodLabel}`,
             size: 'md',
             weight: 'bold',
             color: '#111827',
             wrap: true,
+            margin: 'md',
         },
         {
             type: 'text',
@@ -479,16 +493,6 @@ function buildFlexMessage(payload: EmployeeReportPayload) {
         contents: {
             type: 'bubble',
             size: 'giga',
-            header: {
-                type: 'box',
-                layout: 'vertical',
-                paddingAll: '16px',
-                backgroundColor: '#1F2937',
-                contents: [
-                    { type: 'text', text: 'WORKLOAD REPORT', color: '#E5E7EB', size: 'xs', weight: 'bold' },
-                    { type: 'text', text: 'Employee Summary', color: '#FFFFFF', size: 'lg', weight: 'bold', margin: 'sm' },
-                ],
-            },
             body: {
                 type: 'box',
                 layout: 'vertical',
@@ -500,7 +504,7 @@ function buildFlexMessage(payload: EmployeeReportPayload) {
                 layout: 'vertical',
                 paddingAll: '12px',
                 contents: [
-                    { type: 'text', text: `Generated: ${new Date().toLocaleString('en-GB', { hour12: false })}`, size: 'xs', color: '#6B7280', align: 'center' },
+                    { type: 'text', text: `Generated: ${generatedAt}`, size: 'xs', color: '#6B7280', align: 'center' },
                 ],
             },
         },

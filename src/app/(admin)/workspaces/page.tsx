@@ -649,6 +649,7 @@ export default function TaskBoardPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           projectName: activeProject?.name || 'Unknown Project',
+          projectId: activeProject?.id || '',
           adminLineUserId: (notificationSettings.lineAdminUserId || '').trim(),
           reportType,
           teamLoad,

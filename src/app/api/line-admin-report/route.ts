@@ -6,6 +6,7 @@ const LINE_PUSH_URL = 'https://api.line.me/v2/bot/message/push';
 
 interface ReportPayload {
     projectName: string;
+    projectId?: string;
     adminLineUserId?: string;
     reportType?: 'project-summary' | 'today-team-load' | 'completed-last-2-days';
     teamLoad?: Array<{
@@ -36,6 +37,53 @@ interface ReportPayload {
     };
 }
 
+type FlexTextNode = {
+    type: 'text';
+    text: string;
+    size?: 'xs' | 'sm' | 'md' | 'lg' | 'xl';
+    weight?: 'regular' | 'bold';
+    color?: string;
+    wrap?: boolean;
+    margin?: 'none' | 'sm' | 'md' | 'lg' | 'xl' | 'xxl';
+    align?: 'start' | 'center' | 'end';
+    flex?: number;
+};
+
+type FlexButtonNode = {
+    type: 'button';
+    action: {
+        type: 'uri';
+        label: string;
+        uri: string;
+    };
+    style?: 'primary' | 'secondary' | 'link';
+    color?: string;
+    height?: 'sm' | 'md';
+};
+
+type FlexBoxNode = {
+    type: 'box';
+    layout: 'vertical' | 'horizontal';
+    contents: Array<FlexTextNode | FlexBoxNode | FlexButtonNode>;
+    margin?: 'none' | 'sm' | 'md' | 'lg' | 'xl' | 'xxl';
+    paddingAll?: string;
+    backgroundColor?: string;
+    cornerRadius?: string;
+    flex?: number;
+    spacing?: 'none' | 'sm' | 'md' | 'lg' | 'xl' | 'xxl';
+};
+
+interface FlexMessage {
+    type: 'flex';
+    altText: string;
+    contents: {
+        type: 'bubble';
+        size: 'mega' | 'kilo' | 'giga';
+        body: FlexBoxNode;
+        footer: FlexBoxNode;
+    };
+}
+
 function isAllowedOrigin(request: NextRequest): boolean {
     const configuredUrl = process.env.NEXT_PUBLIC_APP_URL;
     if (!configuredUrl) return true;
@@ -55,6 +103,7 @@ function isValidReportPayload(body: unknown): body is ReportPayload {
     const input = body as Record<string, unknown>;
 
     if (typeof input.projectName !== 'string' || !input.projectName.trim()) return false;
+    if (input.projectId !== undefined && typeof input.projectId !== 'string') return false;
 
     if (input.adminLineUserId !== undefined && typeof input.adminLineUserId !== 'string') {
         return false;
@@ -112,85 +161,218 @@ function isValidReportPayload(body: unknown): body is ReportPayload {
     return requiredKeys.every((key) => typeof metrics[key] === 'number' && Number.isFinite(metrics[key] as number));
 }
 
-function formatReportText(payload: ReportPayload): string {
+function buildFlexMessage(payload: ReportPayload): FlexMessage {
     const generatedAt = new Date().toLocaleString('th-TH', { hour12: false });
     const reportType = payload.reportType || 'project-summary';
+    const appUrl = (process.env.NEXT_PUBLIC_APP_URL || '').trim().replace(/\/$/, '') || 'https://your-app.vercel.app';
+    const liffId = (process.env.NEXT_PUBLIC_LIFF_ID || '').trim();
+    const reportPath = `/reports/admin?type=${encodeURIComponent(reportType)}${payload.projectId ? `&projectId=${encodeURIComponent(payload.projectId)}` : ''}`;
+    const reportUrl = liffId
+        ? `https://liff.line.me/${liffId}?liff.state=${encodeURIComponent(reportPath)}`
+        : `${appUrl}${reportPath}`;
+    const meta = {
+        'project-summary': { title: 'Project Summary', badge: 'SUMMARY', color: '#1D4ED8' },
+        'today-team-load': { title: 'Team Load (Today)', badge: 'TEAM LOAD', color: '#0F766E' },
+        'completed-last-2-days': { title: 'Completed 2-Day Digest', badge: '2-DAY DIGEST', color: '#9A3412' },
+    }[reportType];
+
+    const row = (label: string, value: string, valueColor = '#0F172A'): FlexBoxNode => ({
+        type: 'box',
+        layout: 'horizontal',
+        contents: [
+            { type: 'text', text: label, size: 'sm', color: '#475467' },
+            { type: 'text', text: value, size: 'sm', color: valueColor, weight: 'bold', align: 'end', wrap: true },
+        ],
+    });
+
+    const bodyContents: Array<FlexTextNode | FlexBoxNode | FlexButtonNode> = [
+        {
+            type: 'box',
+            layout: 'vertical',
+            paddingAll: '12px',
+            backgroundColor: '#EEF3F8',
+            cornerRadius: '10px',
+            contents: [
+                { type: 'text', text: 'Business Report', size: 'sm', color: '#475467', weight: 'bold' },
+                { type: 'text', text: meta.title, size: 'md', color: '#0F172A', weight: 'bold', margin: 'sm' },
+                {
+                    type: 'box',
+                    layout: 'horizontal',
+                    margin: 'sm',
+                    contents: [
+                        { type: 'text', text: `Project: ${payload.projectName}`, size: 'sm', color: '#334155', wrap: true },
+                        { type: 'text', text: meta.badge, size: 'sm', color: meta.color, weight: 'bold', align: 'end' },
+                    ],
+                },
+                { type: 'text', text: `Generated: ${generatedAt}`, size: 'xs', color: '#475467', margin: 'sm' },
+            ],
+        },
+        {
+            type: 'box',
+            layout: 'vertical',
+            margin: 'md',
+            paddingAll: '12px',
+            backgroundColor: '#F8FAFC',
+            cornerRadius: '10px',
+            spacing: 'sm',
+            contents: [
+                { type: 'text', text: 'Key Metrics', size: 'sm', color: '#334155', weight: 'bold' },
+                row('Total Tasks', String(payload.metrics.totalTasks)),
+                row('Overdue', String(payload.metrics.overdue), '#B91C1C'),
+                row('Due Soon', String(payload.metrics.dueSoon), '#B45309'),
+                row('Unassigned', String(payload.metrics.unassigned)),
+                row('Not Started', String(payload.metrics.notStarted)),
+                row('In Progress', String(payload.metrics.inProgress), '#1D4ED8'),
+                row('Completed', String(payload.metrics.completed), '#0F766E'),
+                row('Delayed', String(payload.metrics.delayed), '#B91C1C'),
+            ],
+        },
+    ];
+
+    if (reportType === 'today-team-load') {
+        const teamLoadRows = payload.teamLoad || [];
+        bodyContents.push({
+            type: 'text',
+            text: 'Team Load Details',
+            size: 'sm',
+            weight: 'bold',
+            color: '#334155',
+            margin: 'md',
+        });
+
+        if (teamLoadRows.length === 0) {
+            bodyContents.push({
+                type: 'box',
+                layout: 'vertical',
+                paddingAll: '10px',
+                backgroundColor: '#F8FAFC',
+                cornerRadius: '10px',
+                contents: [
+                    { type: 'text', text: 'No open tasks assigned today', size: 'sm', color: '#475467' },
+                ],
+            });
+        } else {
+            teamLoadRows.slice(0, 10).forEach((item, index) => {
+                bodyContents.push({
+                    type: 'box',
+                    layout: 'vertical',
+                    margin: index === 0 ? 'sm' : 'md',
+                    paddingAll: '10px',
+                    backgroundColor: '#FFFFFF',
+                    cornerRadius: '10px',
+                    contents: [
+                        { type: 'text', text: item.name, size: 'sm', weight: 'bold', color: '#111827', wrap: true },
+                        {
+                            type: 'text',
+                            text: `Open ${item.totalOpen} | Due Today ${item.dueToday} | Overdue ${item.overdue}`,
+                            size: 'sm',
+                            color: '#475467',
+                            margin: 'sm',
+                            wrap: true,
+                        },
+                    ],
+                });
+            });
+        }
+    }
 
     if (reportType === 'completed-last-2-days') {
         const digest = payload.completedDigest;
-        const todayTasks = digest?.todayTasks || [];
-        const yesterdayTasks = digest?.yesterdayTasks || [];
-        const todayMore = Math.max(0, digest?.todayMore || 0);
-        const yesterdayMore = Math.max(0, digest?.yesterdayMore || 0);
+        const todayTasks = (digest?.todayTasks || []).slice(0, 6);
+        const yesterdayTasks = (digest?.yesterdayTasks || []).slice(0, 6);
 
-        const lines = [
-            'Completed Work Summary',
-            `Project: ${payload.projectName}`,
-            `Time: ${generatedAt}`,
-            '------------------------------',
-            `Today (${digest?.todayDate || '-'}) : ${digest?.todayDone ?? 0} tasks`,
-        ];
-
-        if (todayTasks.length === 0) {
-            lines.push('- No completed tasks');
-        } else {
-            todayTasks.forEach((taskName) => lines.push(`- ${taskName}`));
-            if (todayMore > 0) lines.push(`- +${todayMore} more`);
-        }
-
-        lines.push('------------------------------');
-        lines.push(`Yesterday (${digest?.yesterdayDate || '-'}) : ${digest?.yesterdayDone ?? 0} tasks`);
-        if (yesterdayTasks.length === 0) {
-            lines.push('- No completed tasks');
-        } else {
-            yesterdayTasks.forEach((taskName) => lines.push(`- ${taskName}`));
-            if (yesterdayMore > 0) lines.push(`- +${yesterdayMore} more`);
-        }
-
-        lines.push('------------------------------');
-        lines.push(`Completed (All): ${payload.metrics.completed}`);
-        lines.push(`Open Tasks: ${payload.metrics.totalTasks - payload.metrics.completed}`);
-        return lines.join('\n');
-    }
-
-    if (reportType === 'today-team-load') {
-        const lines = [
-            'Team Load Report (Today)',
-            `Project: ${payload.projectName}`,
-            `Time: ${generatedAt}`,
-            '------------------------------',
-        ];
-
-        if (!payload.teamLoad || payload.teamLoad.length === 0) {
-            lines.push('No open tasks assigned today');
-            return lines.join('\n');
-        }
-
-        payload.teamLoad.forEach((item) => {
-            lines.push(`${item.name}`);
-            lines.push(`Open: ${item.totalOpen} | Due Today: ${item.dueToday} | Overdue: ${item.overdue}`);
-            lines.push('------------------------------');
+        bodyContents.push({
+            type: 'text',
+            text: 'Completion Digest',
+            size: 'sm',
+            weight: 'bold',
+            color: '#334155',
+            margin: 'md',
         });
-        lines.push(`Total Tasks: ${payload.metrics.totalTasks}`);
-        lines.push(`Overdue Total: ${payload.metrics.overdue}`);
-        return lines.join('\n');
+
+        bodyContents.push({
+            type: 'box',
+            layout: 'vertical',
+            margin: 'sm',
+            paddingAll: '10px',
+            backgroundColor: '#FFFFFF',
+            cornerRadius: '10px',
+            contents: [
+                { type: 'text', text: `Today (${digest?.todayDate || '-'}) : ${digest?.todayDone ?? 0}`, size: 'sm', weight: 'bold', color: '#0F172A' },
+                ...(todayTasks.length > 0
+                    ? todayTasks.map((taskName) => ({
+                        type: 'text' as const,
+                        text: `- ${taskName}`,
+                        size: 'xs' as const,
+                        color: '#475467',
+                        margin: 'sm' as const,
+                        wrap: true,
+                    }))
+                    : [{ type: 'text' as const, text: '- No completed tasks', size: 'xs' as const, color: '#475467', margin: 'sm' as const }]),
+            ],
+        });
+
+        bodyContents.push({
+            type: 'box',
+            layout: 'vertical',
+            margin: 'md',
+            paddingAll: '10px',
+            backgroundColor: '#FFFFFF',
+            cornerRadius: '10px',
+            contents: [
+                { type: 'text', text: `Yesterday (${digest?.yesterdayDate || '-'}) : ${digest?.yesterdayDone ?? 0}`, size: 'sm', weight: 'bold', color: '#0F172A' },
+                ...(yesterdayTasks.length > 0
+                    ? yesterdayTasks.map((taskName) => ({
+                        type: 'text' as const,
+                        text: `- ${taskName}`,
+                        size: 'xs' as const,
+                        color: '#475467',
+                        margin: 'sm' as const,
+                        wrap: true,
+                    }))
+                    : [{ type: 'text' as const, text: '- No completed tasks', size: 'xs' as const, color: '#475467', margin: 'sm' as const }]),
+            ],
+        });
     }
 
-    return [
-        'Project Report (Manual)',
-        `Project: ${payload.projectName}`,
-        `Time: ${generatedAt}`,
-        '------------------------------',
-        `Total Tasks: ${payload.metrics.totalTasks}`,
-        `Overdue: ${payload.metrics.overdue}`,
-        `Due Soon: ${payload.metrics.dueSoon}`,
-        `Unassigned: ${payload.metrics.unassigned}`,
-        '------------------------------',
-        `Not Started: ${payload.metrics.notStarted}`,
-        `In Progress: ${payload.metrics.inProgress}`,
-        `Completed: ${payload.metrics.completed}`,
-        `Delayed: ${payload.metrics.delayed}`,
-    ].join('\n');
+    const footerContents: Array<FlexTextNode | FlexBoxNode | FlexButtonNode> = [
+        { type: 'text', text: `Generated: ${generatedAt}`, size: 'xs', color: '#6B7280', align: 'center' },
+    ];
+
+    if (reportType !== 'today-team-load') {
+        footerContents.unshift({
+            type: 'button',
+            action: {
+                type: 'uri',
+                label: 'Open Full Report',
+                uri: reportUrl,
+            },
+            style: 'primary',
+            color: '#1D4ED8',
+            height: 'sm',
+        });
+    }
+
+    return {
+        type: 'flex',
+        altText: `${meta.title}: ${payload.projectName}`,
+        contents: {
+            type: 'bubble',
+            size: 'giga',
+            body: {
+                type: 'box',
+                layout: 'vertical',
+                paddingAll: '16px',
+                contents: bodyContents,
+            },
+            footer: {
+                type: 'box',
+                layout: 'vertical',
+                paddingAll: '12px',
+                contents: footerContents,
+            },
+        },
+    };
 }
 
 export async function POST(request: NextRequest) {
@@ -216,7 +398,7 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        const text = formatReportText(body);
+        const flexMessage = buildFlexMessage(body);
 
         const response = await fetch(LINE_PUSH_URL, {
             method: 'POST',
@@ -226,7 +408,7 @@ export async function POST(request: NextRequest) {
             },
             body: JSON.stringify({
                 to: targetLineUserId,
-                messages: [{ type: 'text', text }],
+                messages: [flexMessage],
             }),
         });
 

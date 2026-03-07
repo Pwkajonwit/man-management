@@ -102,25 +102,39 @@ export default function MobileMyTasksView({
     const profileName = user?.displayName || currentUserName || 'User';
     const profileInitial = profileName.substring(0, 2).toUpperCase();
 
-    const myTasks = useMemo(() => {
-        const completedProjectIds = new Set(
+    const completedProjectIds = useMemo(() => (
+        new Set(
             projects
                 .filter((project) => project.status === 'completed')
                 .map((project) => project.id)
-        );
+        )
+    ), [projects]);
 
-        return tasks.filter((task) =>
-            !completedProjectIds.has(task.projectId)
-            && isTaskAssignedToCurrentUser(task, teamMembers, currentUserName, user?.lineUserId, user?.uid)
-        );
-    }, [tasks, projects, teamMembers, currentUserName, user?.lineUserId, user?.uid]);
-    const taskOwnerNamesById = useMemo(() => {
+    const reportTasks = useMemo(() => (
+        tasks.filter((task) => !completedProjectIds.has(task.projectId))
+    ), [tasks, completedProjectIds]);
+
+    const reportOwnerNamesByTaskId = useMemo(() => {
         const map = new Map<string, string[]>();
-        myTasks.forEach((task) => {
+        reportTasks.forEach((task) => {
             map.set(task.id, resolveTaskOwnerNames(task, teamMembers));
         });
         return map;
-    }, [myTasks, teamMembers]);
+    }, [reportTasks, teamMembers]);
+
+    const myTasks = useMemo(() => {
+        return reportTasks.filter((task) =>
+            isTaskAssignedToCurrentUser(task, teamMembers, currentUserName, user?.lineUserId, user?.uid)
+        );
+    }, [reportTasks, teamMembers, currentUserName, user?.lineUserId, user?.uid]);
+
+    const taskOwnerNamesById = useMemo(() => {
+        const map = new Map<string, string[]>();
+        myTasks.forEach((task) => {
+            map.set(task.id, reportOwnerNamesByTaskId.get(task.id) || []);
+        });
+        return map;
+    }, [myTasks, reportOwnerNamesByTaskId]);
 
     const grouped = useMemo(() => {
         return {

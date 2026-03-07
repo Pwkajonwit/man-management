@@ -147,7 +147,7 @@ function areTaskArraysEquivalent(prev: Task[], next: Task[]): boolean {
 }
 
 // LINE Notify helper
-async function sendLineNotify(payload: { to: string; taskName: string; action: string; assignedBy?: string; newStatus?: string; projectName?: string; comment?: string }) {
+async function sendLineNotify(payload: { to: string; taskId?: string; taskName: string; action: string; assignedBy?: string; newStatus?: string; projectName?: string; comment?: string }) {
     try {
         await fetch('/api/line-notify', {
             method: 'POST',
@@ -444,6 +444,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
             if (!member?.lineUserId) return;
             sendLineNotify({
                 to: member.lineUserId,
+                taskId: task.id,
                 taskName: task.name,
                 action: 'comment_added',
                 projectName: project?.name,
@@ -612,6 +613,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
                     if (!member?.lineUserId) return;
                     sendLineNotify({
                         to: member.lineUserId,
+                        taskId: task.id,
                         taskName: task.name,
                         action: 'assigned',
                         assignedBy: 'System Admin',
@@ -657,6 +659,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
                     if (!member?.lineUserId) return;
                     sendLineNotify({
                         to: member.lineUserId,
+                        taskId: task.id,
                         taskName: task.name,
                         action: 'status_changed',
                         newStatus,

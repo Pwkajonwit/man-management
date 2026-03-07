@@ -7,6 +7,7 @@ type NotifyAction = 'assigned' | 'status_changed' | 'comment_added' | 'deadline_
 
 interface NotifyPayload {
     to: string;
+    taskId?: string;
     taskName: string;
     action: NotifyAction;
     assignedBy?: string;
@@ -32,6 +33,9 @@ type FlexBoxNode = {
     contents: Array<FlexTextNode | FlexBoxNode | FlexButtonNode>;
     backgroundColor?: string;
     paddingAll?: string;
+    margin?: 'none' | 'sm' | 'md' | 'lg' | 'xl' | 'xxl';
+    cornerRadius?: string;
+    spacing?: 'none' | 'sm' | 'md' | 'lg' | 'xl' | 'xxl';
 };
 
 type FlexButtonNode = {
@@ -52,7 +56,6 @@ interface FlexMessage {
     contents: {
         type: 'bubble';
         size: 'mega' | 'kilo' | 'giga';
-        header: FlexBoxNode;
         body: FlexBoxNode;
         footer: FlexBoxNode;
     };
@@ -100,6 +103,7 @@ function validateNotifyPayload(body: unknown): NotifyPayload | null {
 
     return {
         to,
+        taskId: asTrimmedString(input.taskId) || undefined,
         taskName,
         action,
         assignedBy: asTrimmedString(input.assignedBy) || undefined,
@@ -163,11 +167,11 @@ export async function POST(request: NextRequest) {
 
 function buildFlexMessage(payload: NotifyPayload): FlexMessage {
     const actionMeta: Record<NotifyAction, { title: string; badge: string; color: string }> = {
-        assigned: { title: 'Task Assigned', badge: 'ASSIGNED', color: '#0052CC' },
-        status_changed: { title: 'Status Updated', badge: 'STATUS', color: '#0F7B0F' },
-        comment_added: { title: 'New Comment', badge: 'COMMENT', color: '#8A4B00' },
-        deadline_warning: { title: 'Deadline Warning', badge: 'DUE SOON', color: '#B06A00' },
-        overdue: { title: 'Overdue Alert', badge: 'OVERDUE', color: '#B42318' },
+        assigned: { title: 'Task Assigned', badge: 'ASSIGNED', color: '#1D4ED8' },
+        status_changed: { title: 'Status Updated', badge: 'STATUS', color: '#0F766E' },
+        comment_added: { title: 'New Comment', badge: 'COMMENT', color: '#9A3412' },
+        deadline_warning: { title: 'Deadline Warning', badge: 'DUE SOON', color: '#B45309' },
+        overdue: { title: 'Overdue Alert', badge: 'OVERDUE', color: '#B91C1C' },
     };
     const statusLabels: Record<string, string> = {
         'not-started': 'Not Started',
@@ -178,6 +182,12 @@ function buildFlexMessage(payload: NotifyPayload): FlexMessage {
 
     const meta = actionMeta[payload.action];
     const timestamp = new Date().toLocaleString('en-GB', { hour12: false });
+    const appUrl = (process.env.NEXT_PUBLIC_APP_URL || '').trim().replace(/\/$/, '') || 'https://your-app.vercel.app';
+    const liffId = (process.env.NEXT_PUBLIC_LIFF_ID || '').trim();
+    const taskPath = payload.taskId ? `/me/tasks/${encodeURIComponent(payload.taskId)}` : '/me';
+    const taskDetailUrl = liffId
+        ? `https://liff.line.me/${liffId}?liff.state=${encodeURIComponent(taskPath)}`
+        : `${appUrl}${taskPath}`;
 
     const row = (label: string, value: string, valueColor = '#111827'): FlexBoxNode => ({
         type: 'box',
@@ -202,12 +212,33 @@ function buildFlexMessage(payload: NotifyPayload): FlexMessage {
 
     const bodyContents: Array<FlexTextNode | FlexBoxNode | FlexButtonNode> = [
         {
+            type: 'box',
+            layout: 'vertical',
+            paddingAll: '12px',
+            backgroundColor: '#EEF3F8',
+            cornerRadius: '10px',
+            contents: [
+                { type: 'text', text: 'Business Notification', size: 'sm', color: '#475467', weight: 'bold' },
+                {
+                    type: 'box',
+                    layout: 'horizontal',
+                    margin: 'sm',
+                    contents: [
+                        { type: 'text', text: meta.title, size: 'md', color: '#0F172A', weight: 'bold', wrap: true },
+                        { type: 'text', text: meta.badge, size: 'sm', color: meta.color, weight: 'bold' },
+                    ],
+                },
+                { type: 'text', text: `Time: ${timestamp}`, size: 'sm', color: '#475467', margin: 'sm' },
+            ],
+        },
+        {
             type: 'text',
             text: payload.taskName,
             weight: 'bold',
             size: 'lg',
             color: '#111827',
             wrap: true,
+            margin: 'md',
         },
         {
             type: 'text',
@@ -221,8 +252,10 @@ function buildFlexMessage(payload: NotifyPayload): FlexMessage {
             type: 'box',
             layout: 'vertical',
             contents: detailRows,
-            backgroundColor: '#F3F4F6',
+            backgroundColor: '#F8FAFC',
             paddingAll: '12px',
+            cornerRadius: '10px',
+            margin: 'sm',
         },
     ];
 
@@ -247,8 +280,9 @@ function buildFlexMessage(payload: NotifyPayload): FlexMessage {
                     wrap: true,
                 },
             ],
-            backgroundColor: '#FFFBEB',
+            backgroundColor: '#FFF7ED',
             paddingAll: '12px',
+            cornerRadius: '10px',
         });
     }
 
@@ -258,29 +292,6 @@ function buildFlexMessage(payload: NotifyPayload): FlexMessage {
         contents: {
             type: 'bubble',
             size: 'mega',
-            header: {
-                type: 'box',
-                layout: 'vertical',
-                contents: [
-                    {
-                        type: 'text',
-                        text: 'Task Notification',
-                        color: '#ffffff',
-                        size: 'sm',
-                        weight: 'bold',
-                    },
-                    {
-                        type: 'text',
-                        text: meta.title,
-                        color: '#ffffff',
-                        size: 'lg',
-                        weight: 'bold',
-                        margin: 'sm',
-                    },
-                ],
-                backgroundColor: meta.color,
-                paddingAll: '16px',
-            },
             body: {
                 type: 'box',
                 layout: 'vertical',
@@ -295,11 +306,11 @@ function buildFlexMessage(payload: NotifyPayload): FlexMessage {
                         type: 'button',
                         action: {
                             type: 'uri',
-                            label: 'Open Task Board',
-                            uri: process.env.NEXT_PUBLIC_APP_URL || 'https://your-app.vercel.app',
+                            label: 'View Task',
+                            uri: taskDetailUrl,
                         },
                         style: 'primary',
-                        color: '#0052CC',
+                        color: '#1D4ED8',
                         height: 'sm',
                     },
                 ],

@@ -479,7 +479,7 @@ export default function SettingsPage() {
                     </div>
 
                     <div className="space-y-4">
-                        <div className="bg-white border border-[#d0d4e4] rounded-xl p-4 space-y-3 sticky top-4">
+                        <div className="bg-white border border-[#d0d4e4] rounded-xl p-4 space-y-3 sticky">
                             <div className="text-[15px] font-semibold text-[#323338]">Test Employee Report</div>
                             <select
                                 value={employeeReportTestMemberId}

@@ -626,7 +626,7 @@ export default function UserManagementView({
                         {memberTab === 'system' ? (
                             <div className="divide-y divide-[#e6e9ef]">
                                 <div className="grid grid-cols-1 md:grid-cols-[1.2fr_1fr_1.3fr_1fr_1.2fr_0.9fr_1fr_1fr_auto] gap-2 px-4 py-2 bg-[#f8fafc] text-[11px] font-bold uppercase tracking-wider text-[#676879]">
-                                    <div>Display Name / UID</div>
+                                    <div>Display Name</div>
                                     <div>Username</div>
                                     <div>Email</div>
                                     <div>Phone</div>
@@ -649,7 +649,6 @@ export default function UserManagementView({
                                             ) : (
                                                 <div className="text-[13px] font-semibold text-[#323338] truncate">{user.displayName || '-'}</div>
                                             )}
-                                            <div className="text-[11px] text-[#676879] truncate">UID: {user.id}</div>
                                         </div>
                                         {editingSystemUserId === user.id ? (
                                             <input
@@ -690,13 +689,13 @@ export default function UserManagementView({
                                                     placeholder="LINE User ID"
                                                 />
                                             ) : user.lineUserId ? (
-                                                <button
-                                                    type="button"
-                                                    onClick={() => void handleSystemLineBadgeClick(user)}
-                                                    disabled={systemLineActionUserId === user.id}
-                                                    title={user.lineUserId}
-                                                    className="inline-flex items-center gap-1 rounded-full bg-[#e6faef] text-[#00a66a] border border-[#b8ebd2] px-2 py-0.5 text-[10px] font-bold hover:bg-[#d9f5e8] disabled:opacity-60"
-                                                >
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => void handleSystemLineBadgeClick(user)}
+                                                        disabled={systemLineActionUserId === user.id}
+                                                        title="LINE linked"
+                                                        className="inline-flex items-center gap-1 rounded-full bg-[#e6faef] text-[#00a66a] border border-[#b8ebd2] px-2 py-0.5 text-[10px] font-bold hover:bg-[#d9f5e8] disabled:opacity-60"
+                                                    >
                                                     {systemLineActionUserId === user.id ? (
                                                         <>
                                                             <Loader2 className="w-3 h-3 animate-spin" />
@@ -844,7 +843,7 @@ export default function UserManagementView({
                                                                     type="button"
                                                                     onClick={() => void handleLineBadgeClick(member)}
                                                                     disabled={lineActionMemberId === member.id}
-                                                                    title={member.lineUserId ? `Copy LINE User ID: ${member.lineUserId}` : 'LINE not linked'}
+                                                                    title={member.lineUserId ? 'LINE linked' : 'LINE not linked'}
                                                                     className="shrink-0 inline-flex items-center gap-1 rounded-full bg-[#e6faef] text-[#00a66a] border border-[#b8ebd2] px-2 py-0.5 text-[10px] font-bold hover:bg-[#d9f5e8] disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
                                                                 >
                                                                     {lineActionMemberId === member.id ? (
