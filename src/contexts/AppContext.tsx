@@ -147,7 +147,20 @@ function areTaskArraysEquivalent(prev: Task[], next: Task[]): boolean {
 }
 
 // LINE Notify helper
-async function sendLineNotify(payload: { to: string; taskId?: string; taskName: string; action: string; assignedBy?: string; newStatus?: string; projectName?: string; comment?: string }) {
+async function sendLineNotify(payload: {
+    to: string;
+    taskId?: string;
+    taskName: string;
+    action: string;
+    assignedBy?: string;
+    newStatus?: string;
+    projectName?: string;
+    comment?: string;
+    owner?: string;
+    crew?: string;
+    timeline?: string;
+    priority?: string;
+}) {
     try {
         await fetch('/api/line-notify', {
             method: 'POST',
@@ -584,6 +597,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const handleUpdateTaskOwners = useCallback(async (taskId: string, newOwners: string[]) => {
         const task = tasks.find(t => t.id === taskId);
         const normalizedOwners = Array.from(new Set(newOwners.map(owner => owner.trim()).filter(Boolean)));
+        const primaryOwner = normalizedOwners[0] || '';
+        const nextAssignedEmployeeIds = normalizedOwners
+            .map(ownerName => teamMembers.find(m => m.name === ownerName)?.id)
+            .filter((id): id is string => Boolean(id));
         const previousOwners = task
             ? Array.from(new Set([
                 ...((task.assignedEmployeeIds || []).map(ownerId => teamMembers.find(m => m.id === ownerId)?.name).filter((name): name is string => Boolean(name))),
@@ -608,6 +625,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
             const newlyAssignedOwners = normalizedOwners.filter(owner => !previousOwners.includes(owner));
             if (notificationSettings.notifyTaskAssigned && newlyAssignedOwners.length > 0) {
                 const project = projects.find(p => p.id === task.projectId);
+                const crewNames = normalizedOwners.filter(ownerName => ownerName !== primaryOwner);
                 newlyAssignedOwners.forEach((ownerName) => {
                     const member = teamMembers.find(m => m.name === ownerName);
                     if (!member?.lineUserId) return;
@@ -618,15 +636,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
                         action: 'assigned',
                         assignedBy: 'System Admin',
                         projectName: project?.name,
+                        owner: primaryOwner || 'Unassigned',
+                        crew: crewNames.join(', ') || undefined,
+                        timeline: `${task.planStartDate || '-'} - ${task.planEndDate || '-'}`,
+                        priority: task.priority || '-',
                     });
                 });
             }
         }
-
-        const nextAssignedEmployeeIds = normalizedOwners
-            .map(ownerName => teamMembers.find(m => m.name === ownerName)?.id)
-            .filter((id): id is string => Boolean(id));
-        const primaryOwner = normalizedOwners[0] || '';
 
         updateTaskInState(taskId, (task) => ({
             ...task,

@@ -14,6 +14,10 @@ interface NotifyPayload {
     newStatus?: string;
     projectName?: string;
     comment?: string;
+    owner?: string;
+    crew?: string;
+    timeline?: string;
+    priority?: string;
 }
 
 interface FlexTextNode {
@@ -69,6 +73,35 @@ const ALLOWED_ACTIONS = new Set<NotifyAction>([
     'overdue',
 ]);
 
+function pad2(value: number): string {
+    return String(value).padStart(2, '0');
+}
+
+function formatDateDdMmYyyy(value: Date | string | undefined): string {
+    if (!value) return '-';
+    if (typeof value === 'string') {
+        const trimmed = value.trim();
+        if (!trimmed) return '-';
+        const isoDateMatch = /^(\d{4})-(\d{2})-(\d{2})$/.exec(trimmed);
+        if (isoDateMatch) {
+            return `${isoDateMatch[3]}-${isoDateMatch[2]}-${isoDateMatch[1]}`;
+        }
+        const parsed = new Date(trimmed);
+        if (Number.isNaN(parsed.getTime())) return trimmed;
+        return `${pad2(parsed.getDate())}-${pad2(parsed.getMonth() + 1)}-${parsed.getFullYear()}`;
+    }
+    return `${pad2(value.getDate())}-${pad2(value.getMonth() + 1)}-${value.getFullYear()}`;
+}
+
+function formatTimelineLabel(value?: string): string {
+    if (!value) return '-';
+    const range = value.split(' - ');
+    if (range.length === 2) {
+        return `${formatDateDdMmYyyy(range[0])} - ${formatDateDdMmYyyy(range[1])}`;
+    }
+    return formatDateDdMmYyyy(value);
+}
+
 function asTrimmedString(value: unknown): string | null {
     if (typeof value !== 'string') return null;
     const trimmed = value.trim();
@@ -110,6 +143,10 @@ function validateNotifyPayload(body: unknown): NotifyPayload | null {
         newStatus: asTrimmedString(input.newStatus) || undefined,
         projectName: asTrimmedString(input.projectName) || undefined,
         comment: asTrimmedString(input.comment) || undefined,
+        owner: asTrimmedString(input.owner) || undefined,
+        crew: asTrimmedString(input.crew) || undefined,
+        timeline: asTrimmedString(input.timeline) || undefined,
+        priority: asTrimmedString(input.priority) || undefined,
     };
 }
 
@@ -181,33 +218,41 @@ function buildFlexMessage(payload: NotifyPayload): FlexMessage {
     };
 
     const meta = actionMeta[payload.action];
-    const timestamp = new Date().toLocaleString('en-GB', { hour12: false });
+    const currentDateLabel = formatDateDdMmYyyy(new Date());
     const appUrl = (process.env.NEXT_PUBLIC_APP_URL || '').trim().replace(/\/$/, '') || 'https://your-app.vercel.app';
     const liffId = (process.env.NEXT_PUBLIC_LIFF_ID || '').trim();
-    const taskPath = payload.taskId ? `/me/tasks/${encodeURIComponent(payload.taskId)}` : '/me';
-    const taskDetailUrl = liffId
-        ? `https://liff.line.me/${liffId}?liff.state=${encodeURIComponent(taskPath)}`
-        : `${appUrl}${taskPath}`;
+    const taskDetailUrl = (() => {
+        if (liffId) {
+            if (payload.taskId) {
+                const liffStatePath = `/tasks/${encodeURIComponent(payload.taskId)}`;
+                return `https://liff.line.me/${liffId}?liff.state=${encodeURIComponent(liffStatePath)}`;
+            }
+            return `https://liff.line.me/${liffId}`;
+        }
+        if (payload.taskId) {
+            return `${appUrl}/me/tasks/${encodeURIComponent(payload.taskId)}`;
+        }
+        return `${appUrl}/me`;
+    })();
 
-    const row = (label: string, value: string, valueColor = '#111827'): FlexBoxNode => ({
+    const row = (label: string, value?: string, valueColor = '#111827'): FlexBoxNode => ({
         type: 'box',
         layout: 'horizontal',
         contents: [
             { type: 'text', text: label, size: 'sm', color: '#6B7280' },
-            { type: 'text', text: value, size: 'sm', color: valueColor, weight: 'bold', wrap: true },
+            { type: 'text', text: (value && value.trim()) ? value : '-', size: 'sm', color: valueColor, weight: 'bold', wrap: true },
         ],
     });
 
     const detailRows: FlexBoxNode[] = [
-        row('Action', meta.badge, meta.color),
-        row('Time', timestamp),
+        row('Status', payload.newStatus ? (statusLabels[payload.newStatus] || payload.newStatus) : '-', '#0B6BCB'),
+        row('By', payload.assignedBy || '-'),
     ];
-
-    if (payload.newStatus) {
-        detailRows.push(row('Status', statusLabels[payload.newStatus] || payload.newStatus, '#0B6BCB'));
-    }
-    if (payload.assignedBy) {
-        detailRows.push(row('By', payload.assignedBy));
+    if (payload.action === 'assigned') {
+        detailRows.push(row('Owner', payload.owner || '-'));
+        detailRows.push(row('Crew', payload.crew || '-'));
+        detailRows.push(row('Timeline', formatTimelineLabel(payload.timeline)));
+        detailRows.push(row('Priority', payload.priority || '-'));
     }
 
     const bodyContents: Array<FlexTextNode | FlexBoxNode | FlexButtonNode> = [
@@ -228,7 +273,7 @@ function buildFlexMessage(payload: NotifyPayload): FlexMessage {
                         { type: 'text', text: meta.badge, size: 'sm', color: meta.color, weight: 'bold' },
                     ],
                 },
-                { type: 'text', text: `Time: ${timestamp}`, size: 'sm', color: '#475467', margin: 'sm' },
+                { type: 'text', text: `Date: ${currentDateLabel}`, size: 'sm', color: '#475467', margin: 'sm' },
             ],
         },
         {

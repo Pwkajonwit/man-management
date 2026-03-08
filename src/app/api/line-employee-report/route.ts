@@ -112,7 +112,7 @@ type FlexBoxNode = {
 function statusColor(status: string): string {
     const s = status.toLowerCase();
     if (s.includes('overdue') || s.includes('delayed') || s.includes('stuck')) return '#B42318';
-    if (s.includes('progress')) return '#0B6BCB';
+    if (s.includes('progress')) return '#0c3b69';
     if (s.includes('complete') || s.includes('done')) return '#067647';
     if (s.includes('not')) return '#6B7280';
     return '#374151';
@@ -207,7 +207,7 @@ function buildTimelineSection(
                         type: 'box',
                         layout: 'vertical',
                         height: '18px',
-                        backgroundColor: active ? '#1D75F0' : '#D1D5DB',
+                        backgroundColor: active ? '#0b4580' : '#D1D5DB',
                         cornerRadius: '2px',
                         contents: [{ type: 'text', text: ' ', size: 'xs' }],
                     },
