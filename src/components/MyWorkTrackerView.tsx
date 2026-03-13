@@ -1,4 +1,4 @@
-﻿import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { addDays, isPast, isToday } from 'date-fns';
 import { Task, Project, TeamMember } from '@/types/construction';
 import { getStatusColor, getStatusLabel } from '@/utils/statusUtils';
@@ -100,18 +100,18 @@ export default function MyWorkTrackerView({ tasks, projects, teamMembers }: MyWo
             <div key={task.id} className="p-4 hover:bg-[#f8fafc] transition-colors flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 <div className="min-w-0 flex-1">
                     <div className="text-[#676879] text-xs font-medium mb-1 uppercase tracking-wider truncate">
-                        {project?.name || 'Unknown Project'} • {task.category}
+                        {project?.name || 'โครงการที่ไม่รู้จัก'} • {task.category}
                     </div>
                     <div className="text-[15px] font-medium text-[#323338] truncate">{task.name}</div>
                     <div className="mt-2 flex items-center gap-4 text-xs text-[#676879]">
-                        <span>Due: {task.planEndDate}</span>
-                        <span>{task.planDuration} Days</span>
+                        <span>ครบกำหนด: {task.planEndDate}</span>
+                        <span>{task.planDuration} วัน</span>
                     </div>
                 </div>
 
                 <div className="flex items-center gap-4 shrink-0 w-full sm:w-auto justify-between sm:justify-end">
                     <div className="text-left sm:text-right">
-                        <div className="text-[11px] text-[#676879]">Progress</div>
+                        <div className="text-[11px] text-[#676879]">ความคืบหน้า</div>
                         <div className="text-[13px] font-bold text-[#323338]">{task.progress}%</div>
                     </div>
                     <div className={`min-w-[128px] h-[32px] px-3 flex items-center justify-center text-[12px] font-semibold rounded ${getStatusColor(task.status)} text-white`}>
@@ -125,7 +125,7 @@ export default function MyWorkTrackerView({ tasks, projects, teamMembers }: MyWo
     return (
         <div className="flex-1 flex flex-col min-w-0 bg-[#f5f6f8]">
             <header className="min-h-[64px] bg-white flex flex-wrap items-center px-4 sm:px-6 lg:px-8 py-3 border-b border-[#d0d4e4] gap-3 shrink-0 transition-all">
-                <h1 className="text-[22px] sm:text-[26px] font-bold tracking-tight text-[#323338] truncate">My Work Tracker</h1>
+                <h1 className="text-[22px] sm:text-[26px] font-bold tracking-tight text-[#323338] truncate">ระบบติดตามงานของฉัน</h1>
             </header>
 
             <div className="flex-1 overflow-auto p-4 sm:p-6 lg:p-8">
@@ -133,23 +133,23 @@ export default function MyWorkTrackerView({ tasks, projects, teamMembers }: MyWo
                     <div className="order-2 xl:order-1 space-y-6">
                         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-4">
                             <div className="bg-white p-4 rounded-xl border border-[#d0d4e4]">
-                                <div className="text-[#676879] text-[11px] uppercase font-semibold tracking-wider">Open</div>
+                                <div className="text-[#676879] text-[11px] uppercase font-semibold tracking-wider">สถานะเปิด</div>
                                 <div className="text-3xl font-black text-[#323338] mt-1">{view.openTasks.length}</div>
                             </div>
                             <div className="bg-white p-4 rounded-xl border border-[#d0d4e4]">
-                                <div className="text-[#676879] text-[11px] uppercase font-semibold tracking-wider">Overdue</div>
+                                <div className="text-[#676879] text-[11px] uppercase font-semibold tracking-wider">เกินกำหนด</div>
                                 <div className="text-3xl font-black text-[#e2445c] mt-1">{view.overdue.length}</div>
                             </div>
                             <div className="bg-white p-4 rounded-xl border border-[#d0d4e4]">
-                                <div className="text-[#676879] text-[11px] uppercase font-semibold tracking-wider">Due Today</div>
+                                <div className="text-[#676879] text-[11px] uppercase font-semibold tracking-wider">ครบกำหนดวันนี้</div>
                                 <div className="text-3xl font-black text-[#fdab3d] mt-1">{view.today.length}</div>
                             </div>
                             <div className="bg-white p-4 rounded-xl border border-[#d0d4e4]">
-                                <div className="text-[#676879] text-[11px] uppercase font-semibold tracking-wider">In Progress</div>
+                                <div className="text-[#676879] text-[11px] uppercase font-semibold tracking-wider">กำลังดำเนินการ</div>
                                 <div className="text-3xl font-black text-[#579bfc] mt-1">{view.inProgress.length}</div>
                             </div>
                             <div className="bg-white p-4 rounded-xl border border-[#d0d4e4]">
-                                <div className="text-[#676879] text-[11px] uppercase font-semibold tracking-wider">Avg Progress</div>
+                                <div className="text-[#676879] text-[11px] uppercase font-semibold tracking-wider">ความคืบหน้าเฉลี่ย</div>
                                 <div className="text-3xl font-black text-[#00c875] mt-1">{view.averageProgress}%</div>
                             </div>
                         </div>
@@ -157,24 +157,24 @@ export default function MyWorkTrackerView({ tasks, projects, teamMembers }: MyWo
                         <div className="grid grid-cols-1 xl:grid-cols-[1fr_1fr] gap-6">
                             <div className="bg-white rounded-xl border border-[#d0d4e4] overflow-hidden">
                                 <div className="px-4 py-3 border-b border-[#e6e9ef] bg-[#fff5f6]">
-                                    <h2 className="text-[14px] font-bold text-[#e2445c]">Overdue & Due Today</h2>
+                                    <h2 className="text-[14px] font-bold text-[#e2445c]">เกินกำหนด & ครบกำหนดวันนี้</h2>
                                 </div>
                                 <div className="divide-y divide-[#e6e9ef]">
                                     {[...view.overdue, ...view.today].slice(0, 8).map(renderTaskRow)}
                                     {view.overdue.length + view.today.length === 0 && (
-                                        <div className="p-8 text-center text-[#676879] text-sm">No urgent tasks right now.</div>
+                                        <div className="p-8 text-center text-[#676879] text-sm">ไม่มีงานเร่งด่วนในขณะนี้</div>
                                     )}
                                 </div>
                             </div>
 
                             <div className="bg-white rounded-xl border border-[#d0d4e4] overflow-hidden">
                                 <div className="px-4 py-3 border-b border-[#e6e9ef] bg-[#f0f7ff]">
-                                    <h2 className="text-[14px] font-bold text-[#0052cc]">This Week</h2>
+                                    <h2 className="text-[14px] font-bold text-[#0052cc]">สัปดาห์นี้</h2>
                                 </div>
                                 <div className="divide-y divide-[#e6e9ef]">
                                     {view.thisWeek.slice(0, 8).map(renderTaskRow)}
                                     {view.thisWeek.length === 0 && (
-                                        <div className="p-8 text-center text-[#676879] text-sm">No tasks due this week.</div>
+                                        <div className="p-8 text-center text-[#676879] text-sm">ไม่มีงานที่ครบกำหนดในสัปดาห์นี้</div>
                                     )}
                                 </div>
                             </div>
@@ -182,13 +182,13 @@ export default function MyWorkTrackerView({ tasks, projects, teamMembers }: MyWo
 
                         <div className="bg-white rounded-xl border border-[#d0d4e4] overflow-hidden">
                             <div className="px-4 py-3 border-b border-[#e6e9ef] bg-[#eefbf3] flex items-center justify-between">
-                                <h2 className="text-[14px] font-bold text-[#008a59]">Completed</h2>
-                                <div className="text-[12px] text-[#676879]">{view.completed.length} tasks</div>
+                                <h2 className="text-[14px] font-bold text-[#008a59]">เสร็จสิ้น</h2>
+                                <div className="text-[12px] text-[#676879]">{view.completed.length} งาน</div>
                             </div>
                             <div className="divide-y divide-[#e6e9ef]">
                                 {view.completed.slice(0, 6).map(renderTaskRow)}
                                 {view.completed.length === 0 && (
-                                    <div className="p-8 text-center text-[#676879] text-sm">No completed tasks yet.</div>
+                                    <div className="p-8 text-center text-[#676879] text-sm">ยังไม่มีงานที่เสร็จสิ้น</div>
                                 )}
                             </div>
                         </div>
@@ -197,7 +197,7 @@ export default function MyWorkTrackerView({ tasks, projects, teamMembers }: MyWo
                     <aside className="order-1 xl:order-2 xl:sticky xl:top-0 self-start space-y-4">
                         <div className="bg-white rounded-xl border border-[#d0d4e4] overflow-hidden">
                             <div className="px-3 py-2.5 border-b border-[#e6e9ef] bg-[#f8fbff]">
-                                <div className="text-[11px] uppercase tracking-wider font-semibold text-[#676879]">Owner Load Limit</div>
+                                <div className="text-[11px] uppercase tracking-wider font-semibold text-[#676879]">ขีดจำกัดภาระงาน</div>
                             </div>
                             <div className="p-3 space-y-3">
                                 <div className="grid grid-cols-[1fr_auto] gap-2 items-start">
@@ -208,15 +208,15 @@ export default function MyWorkTrackerView({ tasks, projects, teamMembers }: MyWo
                                         )}
                                     </div>
                                     <div className="text-right">
-                                        <div className="text-[11px] text-[#676879] uppercase">Tasks</div>
-                                        <div className="text-[16px] font-bold text-[#323338]">{ownerLoad.openTasks} open</div>
-                                        <div className="text-[11px] text-[#00a86b]">{ownerLoad.onTrackCount} on track</div>
+                                        <div className="text-[11px] text-[#676879] uppercase">งาน</div>
+                                        <div className="text-[16px] font-bold text-[#323338]">กำลังทำ {ownerLoad.openTasks} งาน</div>
+                                        <div className="text-[11px] text-[#00a86b]">ตามแผน {ownerLoad.onTrackCount} งาน</div>
                                     </div>
                                 </div>
 
                                 <div>
                                     <div className="flex items-center justify-between text-[12px] text-[#676879]">
-                                        <span>Load</span>
+                                        <span>ภาระงาน</span>
                                         <span className="font-semibold text-[#323338]">
                                             {ownerLoad.openHours}h / {ownerLoad.capacityHours}h
                                         </span>
@@ -230,7 +230,7 @@ export default function MyWorkTrackerView({ tasks, projects, teamMembers }: MyWo
                                 </div>
 
                                 <div className="flex items-center justify-between">
-                                    <span className="text-[12px] text-[#676879]">Util</span>
+                                    <span className="text-[12px] text-[#676879]">ความหนาแน่น</span>
                                     <span className={`text-[13px] font-bold ${ownerLoad.utilPercent > 100 ? 'text-[#e2445c]' : 'text-[#00a86b]'}`}>
                                         {ownerLoad.utilPercent}%
                                     </span>
@@ -239,7 +239,7 @@ export default function MyWorkTrackerView({ tasks, projects, teamMembers }: MyWo
                         </div>
 
                         <div className="bg-white p-3 rounded-xl border border-[#d0d4e4]">
-                            <div className="text-[11px] uppercase tracking-wider font-semibold text-[#676879] mb-2">Owner</div>
+                            <div className="text-[11px] uppercase tracking-wider font-semibold text-[#676879] mb-2">ผู้รับผิดชอบ</div>
                             <select
                                 value={activeMyWorkUser}
                                 onChange={(e) => setSelectedMyWorkUser(e.target.value)}
@@ -249,7 +249,7 @@ export default function MyWorkTrackerView({ tasks, projects, teamMembers }: MyWo
                                     <option key={member.id} value={member.name}>{member.name}</option>
                                 ))}
                                 {selectableMembers.length === 0 && (
-                                    <option value="">No team members</option>
+                                    <option value="">ไม่มีสมาชิกทีม</option>
                                 )}
                             </select>
                         </div>

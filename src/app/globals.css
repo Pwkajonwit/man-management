@@ -15,6 +15,7 @@
 body {
   background: var(--background);
   color: var(--foreground);
+  font-family: var(--font-sans);
 }
 
 .loading-line-track {
@@ -33,7 +34,7 @@ body {
   width: 34%;
   height: 100%;
   border-radius: 9999px;
-  background: linear-gradient(90deg, #2b74c8 0%, #46a0ff 55%, #74c3ff 100%);
+  background: linear-gradient(90deg, #6ab04c 0%, #7fd15c 55%, #9ae07c 100%);
   box-shadow: 0 0 12px rgba(70, 160, 255, 0.55);
   animation: loading-line-slide 1.2s ease-in-out infinite;
 }
@@ -44,5 +45,21 @@ body {
   }
   100% {
     transform: translateX(320%);
+  }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes modalSlideUp {
+  from {
+    opacity: 0;
+    transform: translateY(16px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
   }
 }

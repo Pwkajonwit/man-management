@@ -14,6 +14,6 @@ export default function MeAdminReportAliasPage() {
         router.replace(target);
     }, [router, searchParams]);
 
-    return <LinearLoadingScreen message="Opening admin report..." />;
+    return <LinearLoadingScreen message="กำลังเปิดรายงานผู้ดูแลระบบ..." />;
 }
 

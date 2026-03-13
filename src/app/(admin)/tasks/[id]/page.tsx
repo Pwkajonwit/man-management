@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
@@ -102,9 +102,9 @@ export default function TaskDetailPage() {
             <div className="flex-1 flex items-center justify-center bg-[#f5f6f8]">
                 <div className="text-center">
                     <div className="text-5xl mb-4">?</div>
-                    <h2 className="text-xl font-bold text-[#323338] mb-2">Task not found</h2>
+                    <h2 className="text-xl font-bold text-[#323338] mb-2">ไม่พบงาน</h2>
                     <button onClick={() => router.push('/workspaces')} className="px-4 py-2 bg-[#0073ea] text-white rounded-lg text-sm font-medium hover:bg-[#0060c0] transition-colors">
-                        Back to Board
+                        กลับไปยังหน้าหลัก
                     </button>
                 </div>
             </div>
@@ -188,7 +188,7 @@ export default function TaskDetailPage() {
                         className={`py-3 border-b-[3px] font-medium transition-colors capitalize whitespace-nowrap ${activeTab === tab ? 'border-[#0073ea] text-[#0073ea]' : 'border-transparent text-[#676879] hover:text-[#323338]'
                             }`}
                     >
-                        {tab === 'details' ? 'Details' : tab === 'activity' ? 'Activity Log' : `Updates (${taskComments.length})`}
+                        {tab === 'details' ? 'รายละเอียด' : tab === 'activity' ? 'บันทึกกิจกรรม' : `อัปเดต (${taskComments.length})`}
                     </button>
                 ))}
             </div>
@@ -202,7 +202,7 @@ export default function TaskDetailPage() {
                             <div className="bg-white rounded-xl border border-[#d0d4e4] p-4">
                                 <div className="flex items-start justify-between gap-4 flex-wrap">
                                     <div>
-                                        <div className="text-[11px] text-[#676879] uppercase tracking-wider font-semibold">Quick Summary</div>
+                                        <div className="text-[11px] text-[#676879] uppercase tracking-wider font-semibold">สรุปอย่างย่อ</div>
                                         <div className="mt-1 text-[14px] font-semibold text-[#323338]">{task.name}</div>
                                         <div className="mt-2 flex items-center gap-2 flex-wrap">
                                             {ownerNames.length > 0 ? ownerNames.map((name) => (
@@ -210,22 +210,22 @@ export default function TaskDetailPage() {
                                                     <Users className="w-3 h-3" /> {name}
                                                 </span>
                                             )) : (
-                                                <span className="inline-flex items-center px-2 py-1 rounded-full bg-[#f0f1f4] text-[#676879] text-[11px] font-semibold">Unassigned</span>
+                                                <span className="inline-flex items-center px-2 py-1 rounded-full bg-[#f0f1f4] text-[#676879] text-[11px] font-semibold">ยังไม่ระบุ</span>
                                             )}
                                         </div>
                                     </div>
 
                                     <div className="text-right">
                                         <div className={`text-[12px] font-bold ${taskOverdue ? 'text-[#e2445c]' : taskDueSoon ? 'text-[#fdab3d]' : 'text-[#00a66a]'}`}>
-                                            {taskOverdue ? 'Overdue' : taskDueSoon ? 'Due Soon' : 'On Track'}
+                                            {taskOverdue ? 'เกินกำหนด' : taskDueSoon ? 'ใกล้กำหนด' : 'ตามแผน'}
                                         </div>
-                                        <div className="text-[12px] text-[#676879] mt-1">Due: {task.planEndDate}</div>
-                                        <div className="text-[12px] text-[#676879] mt-0.5">Duration: {task.planDuration} days</div>
+                                        <div className="text-[12px] text-[#676879] mt-1">ครบกำหนด: {task.planEndDate}</div>
+                                        <div className="text-[12px] text-[#676879] mt-0.5">ระยะเวลา: {task.planDuration} วัน</div>
                                     </div>
                                 </div>
                                 {taskOverdue && (
                                     <div className="mt-3 inline-flex items-center gap-1.5 text-[12px] text-[#e2445c] bg-[#fff1f3] border border-[#ffd5db] rounded-full px-2.5 py-1">
-                                        <AlertTriangle className="w-3.5 h-3.5" /> This task passed its due date
+                                        <AlertTriangle className="w-3.5 h-3.5" /> งานนี้เกินกำหนดเวลาแล้ว
                                     </div>
                                 )}
                             </div>
@@ -234,22 +234,22 @@ export default function TaskDetailPage() {
                             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
                                 {/* Owner */}
                                 <div className="bg-white rounded-xl border border-[#d0d4e4] p-4">
-                                    <div className="text-[11px] text-[#676879] uppercase font-bold tracking-wider mb-2">Owner</div>
+                                    <div className="text-[11px] text-[#676879] uppercase font-bold tracking-wider mb-2">ผู้รับผิดชอบ</div>
                                     <div className="space-y-1 max-h-[140px] overflow-y-auto rounded-lg border border-[#d0d4e4] bg-[#f5f6f8] p-2">
                                         <button
                                             type="button"
                                             onClick={() => handleUpdateTaskOwners(taskId, [])}
                                             className="w-full text-left text-[12px] px-2 py-1 rounded hover:bg-white text-[#676879] italic"
                                         >
-                                            Unassigned
+                                            ยังไม่ระบุ
                                         </button>
                                         {[
                                             {
-                                                label: 'Team Members',
+                                                label: 'สมาชิกทีม',
                                                 members: teamMembers.filter((member) => member.memberType !== 'crew'),
                                             },
                                             {
-                                                label: 'Crew',
+                                                label: 'ทีมช่าง',
                                                 members: teamMembers.filter((member) => member.memberType === 'crew'),
                                             },
                                         ].filter((group) => group.members.length > 0).map((group) => (
@@ -282,12 +282,12 @@ export default function TaskDetailPage() {
                                             </div>
                                         ))}
                                     </div>
-                                    <div className="mt-1 text-[11px] text-[#676879]">{ownerNames.length} selected</div>
+                                    <div className="mt-1 text-[11px] text-[#676879]">เลือก {ownerNames.length} รายการ</div>
                                 </div>
 
                                 {/* Status */}
                                 <div className="bg-white rounded-xl border border-[#d0d4e4] p-4">
-                                    <div className="text-[11px] text-[#676879] uppercase font-bold tracking-wider mb-2">Status</div>
+                                    <div className="text-[11px] text-[#676879] uppercase font-bold tracking-wider mb-2">สถานะ</div>
                                     <select
                                         value={task.status}
                                         onChange={e => handleUpdateTaskStatus(taskId, e.target.value as Task['status'])}
@@ -302,7 +302,7 @@ export default function TaskDetailPage() {
 
                                 {/* Priority */}
                                 <div className="bg-white rounded-xl border border-[#d0d4e4] p-4">
-                                    <div className="text-[11px] text-[#676879] uppercase font-bold tracking-wider mb-2">Priority</div>
+                                    <div className="text-[11px] text-[#676879] uppercase font-bold tracking-wider mb-2">ความสำคัญ</div>
                                     <select
                                         value={task.priority || ''}
                                         onChange={e => handleUpdateTaskPriority(taskId, e.target.value as Task['priority'] | '')}
@@ -318,7 +318,7 @@ export default function TaskDetailPage() {
 
                                 {/* Progress */}
                                 <div className="bg-white rounded-xl border border-[#d0d4e4] p-4">
-                                    <div className="text-[11px] text-[#676879] uppercase font-bold tracking-wider mb-2">Progress</div>
+                                    <div className="text-[11px] text-[#676879] uppercase font-bold tracking-wider mb-2">ความคืบหน้า</div>
                                     <div className="flex items-center gap-2">
                                         <input
                                             type="number" min="0" max="100"
@@ -337,11 +337,11 @@ export default function TaskDetailPage() {
                             {/* Timeline */}
                             <div className="bg-white rounded-xl border border-[#d0d4e4] p-5">
                                 <div className="text-[13px] font-bold text-[#323338] mb-3 flex items-center gap-2">
-                                    <Clock className="w-4 h-4 text-[#676879]" /> Timeline
+                                    <Clock className="w-4 h-4 text-[#676879]" /> กำหนดเวลา
                                 </div>
                                 <div className="flex flex-col sm:flex-row sm:items-end gap-3 sm:gap-4">
                                     <div>
-                                        <label className="text-[11px] text-[#676879] uppercase font-bold">Start Date</label>
+                                        <label className="text-[11px] text-[#676879] uppercase font-bold">วันที่เริ่ม</label>
                                         <input type="date" value={task.planStartDate}
                                             onChange={e => handleUpdateTaskTimeline(taskId, 'planStartDate', e.target.value)}
                                             className="block w-full mt-1 bg-[#f5f6f8] border border-[#d0d4e4] rounded-lg px-3 py-2 text-[13px] outline-none cursor-pointer"
@@ -349,28 +349,28 @@ export default function TaskDetailPage() {
                                     </div>
                                     <span className="text-[#676879] sm:mt-5">-&gt;</span>
                                     <div>
-                                        <label className="text-[11px] text-[#676879] uppercase font-bold">End Date</label>
+                                        <label className="text-[11px] text-[#676879] uppercase font-bold">วันที่สิ้นสุด</label>
                                         <input type="date" value={task.planEndDate}
                                             onChange={e => handleUpdateTaskTimeline(taskId, 'planEndDate', e.target.value)}
                                             className="block w-full mt-1 bg-[#f5f6f8] border border-[#d0d4e4] rounded-lg px-3 py-2 text-[13px] outline-none cursor-pointer"
                                         />
                                     </div>
                                     <div className="bg-[#f5f6f8] rounded-lg px-4 py-2 sm:mt-5 text-[13px] text-[#676879]">
-                                        {task.planDuration} days
+                                        {task.planDuration} วัน
                                     </div>
                                 </div>
                             </div>
 
                             {/* Description */}
                             <div className="bg-white rounded-xl border border-[#d0d4e4] p-5">
-                                <div className="text-[13px] font-bold text-[#323338] mb-3">Description</div>
+                                <div className="text-[13px] font-bold text-[#323338] mb-3">คำอธิบาย</div>
                                 {editingDescription ? (
                                     <div>
                                         <textarea
                                             value={descDraft}
                                             onChange={e => setDescDraft(e.target.value)}
                                             className="w-full bg-[#f5f6f8] border border-[#0073ea] rounded-lg p-3 text-[14px] outline-none resize-none h-[120px]"
-                                            placeholder="Add a description..."
+                                            placeholder="เพิ่มคำอธิบาย..."
                                             autoFocus
                                         />
                                         <div className="flex gap-2 mt-2">
@@ -385,7 +385,7 @@ export default function TaskDetailPage() {
                                         onClick={() => { setDescDraft(task.description || ''); setEditingDescription(true); }}
                                         className="text-[14px] text-[#323338] leading-relaxed min-h-[60px] cursor-pointer hover:bg-[#f5f6f8] rounded-lg p-3 -m-3 transition-colors"
                                     >
-                                        {task.description || <span className="text-[#a0a2b1] italic">Click to add a description...</span>}
+                                        {task.description || <span className="text-[#a0a2b1] italic">คลิกเพื่อเพิ่มคำอธิบาย...</span>}
                                     </div>
                                 )}
                             </div>
@@ -446,7 +446,7 @@ export default function TaskDetailPage() {
                                         value={newSubtaskName}
                                         onChange={e => setNewSubtaskName(e.target.value)}
                                         onKeyDown={e => e.key === 'Enter' && handleAddSubTask()}
-                                        placeholder="Add sub-task..."
+                                        placeholder="เพิ่มงานย่อย..."
                                         className="flex-1 bg-transparent text-[14px] outline-none placeholder:text-[#a0a2b1]"
                                     />
                                     <button onClick={handleAddSubTask} disabled={!newSubtaskName.trim()}
@@ -470,7 +470,7 @@ export default function TaskDetailPage() {
                                         <input type="file" multiple ref={fileInputRef} onChange={handleFileUpload} className="hidden" />
                                         <button onClick={() => fileInputRef.current?.click()}
                                             className="flex items-center gap-1.5 px-3 py-1.5 bg-[#f5f6f8] hover:bg-[#d0d4e4] border border-[#d0d4e4] rounded-lg text-[12px] font-medium text-[#323338] transition-colors">
-                                            <Plus className="w-3.5 h-3.5" /> Upload
+                                            <Plus className="w-3.5 h-3.5" /> อัปโหลด
                                         </button>
                                     </div>
                                 </div>
@@ -478,7 +478,7 @@ export default function TaskDetailPage() {
                                 {taskAttachments.length === 0 ? (
                                     <div className="text-center py-8 text-[#a0a2b1]">
                                         <Paperclip className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                                        <div className="text-[13px]">No files attached yet</div>
+                                        <div className="text-[13px]">ยังไม่มีไฟล์แนบ</div>
                                     </div>
                                 ) : (
                                     <div className="space-y-2">
@@ -513,13 +513,13 @@ export default function TaskDetailPage() {
                     {activeTab === 'activity' && (
                         <div className="bg-white rounded-xl border border-[#d0d4e4] p-5">
                             <div className="text-[13px] font-bold text-[#323338] mb-4 flex items-center gap-2">
-                                Activity Log
+                                บันทึกกิจกรรม
                             </div>
                             {taskActivity.length === 0 ? (
                                 <div className="text-center py-10 text-[#a0a2b1]">
                                     <Clock className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                                    <div className="text-[14px] font-medium text-[#323338]">No activity yet</div>
-                                    <div className="text-[13px]">Changes to this task will appear here</div>
+                                    <div className="text-[14px] font-medium text-[#323338]">ยังไม่มีกิจกรรม</div>
+                                    <div className="text-[13px]">การเปลี่ยนแปลงในงานนี้จะแสดงที่นี่</div>
                                 </div>
                             ) : (
                                 <div className="relative pl-6">
@@ -559,13 +559,13 @@ export default function TaskDetailPage() {
 
                     {activeTab === 'updates' && (
                         <div className="bg-white rounded-xl border border-[#d0d4e4] p-5">
-                            <div className="text-[13px] font-bold text-[#323338] mb-4">Updates & Comments</div>
+                            <div className="text-[13px] font-bold text-[#323338] mb-4">อัปเดตและความคิดเห็น</div>
                             {/* Input */}
                             <div className="border border-[#0073ea] rounded-lg overflow-hidden mb-6">
                                 <textarea
                                     value={updateText}
                                     onChange={e => setUpdateText(e.target.value)}
-                                    placeholder="Write an update..."
+                                    placeholder="เขียนอัปเดต..."
                                     className="w-full p-4 outline-none resize-none h-[80px] text-[14px] placeholder:text-[#a0a2b1]"
                                 />
                                 <div className="px-4 py-2 bg-[#f5f6f8] border-t border-[#d0d4e4] flex justify-end">
@@ -580,8 +580,8 @@ export default function TaskDetailPage() {
                                 {taskComments.length === 0 ? (
                                     <div className="text-center py-8 text-[#a0a2b1]">
                                         <MessageSquare className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                                        <div className="text-[14px] font-medium text-[#323338]">No updates yet</div>
-                                        <div className="text-[13px]">Be the first to write an update!</div>
+                                        <div className="text-[14px] font-medium text-[#323338]">ยังไม่มีอัปเดต</div>
+                                        <div className="text-[13px]">เป็นคนแรกที่เขียนอัปเดต!</div>
                                     </div>
                                 ) : (
                                     [...taskComments].reverse().map(upd => (

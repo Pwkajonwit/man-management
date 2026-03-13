@@ -8,7 +8,7 @@ import { useAppContext } from '@/contexts/AppContext';
 export default function DashboardPage() {
     const { tasks, teamMembers, loading } = useAppContext();
 
-    if (loading) return <LinearLoadingScreen message="Loading dashboard..." />;
+    if (loading) return <LinearLoadingScreen message="กำลังโหลดแดชบอร์ด..." />;
 
     return <DashboardOverviewView tasks={tasks} teamMembers={teamMembers} />;
 }

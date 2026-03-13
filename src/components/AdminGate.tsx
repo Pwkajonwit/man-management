@@ -16,7 +16,7 @@ export default function AdminGate({ children }: { children: React.ReactNode }) {
     if (!isAuthenticated) return <LoginPage />;
 
     return (
-        <div className="flex h-dvh bg-white text-[#323338] font-sans">
+        <div className="flex h-dvh bg-white text-[#323338]">
             <SidebarNavigation />
             <div className="flex-1 min-w-0 min-h-0 flex flex-col">
                 <div className="md:hidden h-14 bg-white border-b border-[#d0d4e4] px-4 flex items-center justify-between shrink-0">

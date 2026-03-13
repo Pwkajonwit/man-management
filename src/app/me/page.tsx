@@ -15,7 +15,7 @@ export default function MePage() {
         handleUpdateTaskStatus,
     } = useAppContext();
 
-    if (loading) return <LinearLoadingScreen message="Loading your tasks..." />;
+    if (loading) return <LinearLoadingScreen message="กำลังโหลดงานของคุณ..." />;
 
     return (
         <MobileMyTasksView

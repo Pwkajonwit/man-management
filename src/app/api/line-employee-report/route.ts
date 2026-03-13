@@ -288,7 +288,7 @@ function buildTimelineSection(
                 : []),
             {
                 type: 'text',
-                text: projectTitle ? 'Timeline (5 days)' : 'Timeline Preview (5 days)',
+                text: projectTitle ? 'ไทม์ไลน์ (5 วัน)' : 'ตัวอย่างไทม์ไลน์ (5 วัน)',
                 size: 'sm',
                 weight: 'bold',
                 color: '#374151',
@@ -304,14 +304,14 @@ function buildTimelineSection(
                         type: 'box',
                         layout: 'vertical',
                         width: '96px',
-                        contents: [{ type: 'text', text: 'Start/End', size: 'xs', color: '#6B7280' }],
+                        contents: [{ type: 'text', text: 'เริ่ม/สิ้น', size: 'xs', color: '#6B7280' }],
                     },
                     {
                         type: 'box',
                         layout: 'vertical',
                         width: '20px',
                         alignItems: 'center',
-                        contents: [{ type: 'text', text: 'D', size: 'xs', color: '#6B7280' }],
+                        contents: [{ type: 'text', text: 'ว', size: 'xs', color: '#6B7280' }],
                     },
                     { type: 'box', layout: 'vertical', flex: 1, contents: [headerDays] },
                 ],
@@ -324,7 +324,7 @@ function buildTimelineSection(
 function groupTasksByProject(tasks: EmployeeReportPayload['tasks']) {
     const grouped = new Map<string, EmployeeReportPayload['tasks']>();
     tasks.forEach((task) => {
-        const project = (task.projectName || 'Unknown Project').trim() || 'Unknown Project';
+        const project = (task.projectName || 'โครงการที่ไม่รู้จัก').trim() || 'โครงการที่ไม่รู้จัก';
         if (!grouped.has(project)) grouped.set(project, []);
         grouped.get(project)?.push(task);
     });
@@ -340,7 +340,7 @@ function buildFlexMessage(payload: EmployeeReportPayload) {
             type: 'box',
             layout: 'vertical',
             contents: [
-                { type: 'text', text: 'OPEN', size: 'xs', color: '#6B7280', align: 'center' },
+                { type: 'text', text: 'เปิด', size: 'xs', color: '#6B7280', align: 'center' },
                 { type: 'text', text: String(payload.summary.total), size: 'lg', weight: 'bold', color: '#111827', align: 'center' },
             ],
             paddingAll: '8px',
@@ -352,7 +352,7 @@ function buildFlexMessage(payload: EmployeeReportPayload) {
             type: 'box',
             layout: 'vertical',
             contents: [
-                { type: 'text', text: 'OVERDUE', size: 'xs', color: '#6B7280', align: 'center' },
+                { type: 'text', text: 'เกินกำหนด', size: 'xs', color: '#6B7280', align: 'center' },
                 { type: 'text', text: String(payload.summary.overdue), size: 'lg', weight: 'bold', color: '#B42318', align: 'center' },
             ],
             paddingAll: '8px',
@@ -364,7 +364,7 @@ function buildFlexMessage(payload: EmployeeReportPayload) {
             type: 'box',
             layout: 'vertical',
             contents: [
-                { type: 'text', text: 'DUE SOON', size: 'xs', color: '#6B7280', align: 'center' },
+                { type: 'text', text: 'ใกล้ครบกำหนด', size: 'xs', color: '#6B7280', align: 'center' },
                 { type: 'text', text: String(payload.summary.dueSoon), size: 'lg', weight: 'bold', color: '#B54708', align: 'center' },
             ],
             paddingAll: '8px',
@@ -384,7 +384,7 @@ function buildFlexMessage(payload: EmployeeReportPayload) {
         contents: [
             {
                 type: 'text',
-                text: multiProjectMode ? `[${task.projectName || 'Unknown Project'}] ${task.name}` : task.name,
+                text: multiProjectMode ? `[โครงการ: ${task.projectName || 'ไม่รู้จัก'}] ${task.name}` : task.name,
                 size: 'sm',
                 weight: 'bold',
                 color: '#111827',
@@ -396,7 +396,7 @@ function buildFlexMessage(payload: EmployeeReportPayload) {
                 margin: 'sm',
                 contents: [
                     { type: 'text', text: task.status, size: 'xs', color: statusColor(task.status), weight: 'bold' },
-                    { type: 'text', text: `Due ${task.dueDate}`, size: 'xs', color: '#6B7280', align: 'end' },
+                    { type: 'text', text: `ครบกำหนด ${task.dueDate}`, size: 'xs', color: '#6B7280', align: 'end' },
                 ],
             },
         ],
@@ -410,9 +410,9 @@ function buildFlexMessage(payload: EmployeeReportPayload) {
             backgroundColor: '#EEF3F8',
             cornerRadius: '10px',
             contents: [
-                { type: 'text', text: 'Business Report', size: 'sm', color: '#475467', weight: 'bold' },
-                { type: 'text', text: 'Employee Workload Summary', size: 'md', weight: 'bold', color: '#0F172A', margin: 'sm' },
-                { type: 'text', text: `Generated: ${generatedAt}`, size: 'xs', color: '#475467', margin: 'sm' },
+                { type: 'text', text: 'รายงาน', size: 'sm', color: '#475467', weight: 'bold' },
+                { type: 'text', text: 'สรุปภาระงานพนักงาน', size: 'md', weight: 'bold', color: '#0F172A', margin: 'sm' },
+                { type: 'text', text: `สร้างเมื่อ: ${generatedAt}`, size: 'xs', color: '#475467', margin: 'sm' },
             ],
         },
         {
@@ -426,7 +426,7 @@ function buildFlexMessage(payload: EmployeeReportPayload) {
         },
         {
             type: 'text',
-            text: multiProjectMode ? `Projects: ${groupedProjectTasks.length} groups (All Projects)` : `Project: ${payload.projectName}`,
+            text: multiProjectMode ? `โครงการ: ${groupedProjectTasks.length} กลุ่ม (ทุกโครงการ)` : `โครงการ: ${payload.projectName}`,
             size: 'sm',
             color: '#4B5563',
             margin: 'sm',
@@ -441,7 +441,7 @@ function buildFlexMessage(payload: EmployeeReportPayload) {
         },
         {
             type: 'text',
-            text: `In Progress ${payload.summary.inProgress} | Not Started ${payload.summary.notStarted} | Completed ${payload.summary.completed}`,
+            text: `กำลังดำเนินการ ${payload.summary.inProgress} | ยังไม่เริ่ม ${payload.summary.notStarted} | เสร็จสิ้น ${payload.summary.completed}`,
             size: 'xs',
             color: '#4B5563',
             margin: 'md',
@@ -454,7 +454,7 @@ function buildFlexMessage(payload: EmployeeReportPayload) {
             if (multiProjectMode) {
                 bodyContents.push({
                     type: 'text',
-                    text: 'Grouped by Project',
+                    text: 'แบ่งตามโครงการ',
                     size: 'sm',
                     weight: 'bold',
                     color: '#374151',
@@ -469,7 +469,7 @@ function buildFlexMessage(payload: EmployeeReportPayload) {
         } else {
             bodyContents.push({
                 type: 'text',
-                text: 'Top Task Items',
+                text: '\u0e23\u0e32\u0e22\u0e01\u0e32\u0e23\u0e07\u0e32\u0e19\u0e2b\u0e25\u0e31\u0e01',
                 size: 'sm',
                 weight: 'bold',
                 color: '#374151',
@@ -489,7 +489,7 @@ function buildFlexMessage(payload: EmployeeReportPayload) {
 
     return {
         type: 'flex',
-        altText: `Employee Report: ${payload.employeeName}`,
+        altText: `รายงานพนักงาน: ${payload.employeeName}`,
         contents: {
             type: 'bubble',
             size: 'giga',
@@ -504,7 +504,7 @@ function buildFlexMessage(payload: EmployeeReportPayload) {
                 layout: 'vertical',
                 paddingAll: '12px',
                 contents: [
-                    { type: 'text', text: `Generated: ${generatedAt}`, size: 'xs', color: '#6B7280', align: 'center' },
+                    { type: 'text', text: `สร้างเมื่อ: ${generatedAt}`, size: 'xs', color: '#6B7280', align: 'center' },
                 ],
             },
         },

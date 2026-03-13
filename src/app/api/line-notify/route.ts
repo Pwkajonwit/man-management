@@ -204,17 +204,17 @@ export async function POST(request: NextRequest) {
 
 function buildFlexMessage(payload: NotifyPayload): FlexMessage {
     const actionMeta: Record<NotifyAction, { title: string; badge: string; color: string }> = {
-        assigned: { title: 'Task Assigned', badge: 'ASSIGNED', color: '#1D4ED8' },
-        status_changed: { title: 'Status Updated', badge: 'STATUS', color: '#0F766E' },
-        comment_added: { title: 'New Comment', badge: 'COMMENT', color: '#9A3412' },
-        deadline_warning: { title: 'Deadline Warning', badge: 'DUE SOON', color: '#B45309' },
-        overdue: { title: 'Overdue Alert', badge: 'OVERDUE', color: '#B91C1C' },
+        assigned: { title: 'แจ้งมอบหมายงานใหม่', badge: 'งานใหม่', color: '#1D4ED8' },
+        status_changed: { title: 'แจ้งเปลี่ยนสถานะงาน', badge: 'อัปเดต', color: '#0F766E' },
+        comment_added: { title: 'แจ้งความคิดเห็นใหม่', badge: 'ข้อความ', color: '#9A3412' },
+        deadline_warning: { title: 'งานใกล้ครบกำหนดส่ง', badge: 'ใกล้ส่ง', color: '#B45309' },
+        overdue: { title: 'งานเกินกำหนดเวลา', badge: 'ล่าช้า', color: '#B91C1C' },
     };
     const statusLabels: Record<string, string> = {
-        'not-started': 'Not Started',
-        'in-progress': 'In Progress',
-        completed: 'Completed',
-        delayed: 'Delayed',
+        'not-started': 'ยังไม่เริ่ม',
+        'in-progress': 'กำลังดำเนินการ',
+        completed: 'เสร็จสิ้น',
+        delayed: 'ล่าช้า',
     };
 
     const meta = actionMeta[payload.action];
@@ -245,14 +245,14 @@ function buildFlexMessage(payload: NotifyPayload): FlexMessage {
     });
 
     const detailRows: FlexBoxNode[] = [
-        row('Status', payload.newStatus ? (statusLabels[payload.newStatus] || payload.newStatus) : '-', '#0B6BCB'),
-        row('By', payload.assignedBy || '-'),
+        row('สถานะ', payload.newStatus ? (statusLabels[payload.newStatus] || payload.newStatus) : '-', '#0B6BCB'),
+        row('โดย', payload.assignedBy || '-'),
     ];
     if (payload.action === 'assigned') {
-        detailRows.push(row('Owner', payload.owner || '-'));
-        detailRows.push(row('Crew', payload.crew || '-'));
-        detailRows.push(row('Timeline', formatTimelineLabel(payload.timeline)));
-        detailRows.push(row('Priority', payload.priority || '-'));
+        detailRows.push(row('ผู้รับผิดชอบ', payload.owner || '-'));
+        detailRows.push(row('ทีมช่าง', payload.crew || '-'));
+        detailRows.push(row('ไทม์ไลน์', formatTimelineLabel(payload.timeline)));
+        detailRows.push(row('ลำดับความสำคัญ', payload.priority || '-'));
     }
 
     const bodyContents: Array<FlexTextNode | FlexBoxNode | FlexButtonNode> = [
@@ -263,7 +263,7 @@ function buildFlexMessage(payload: NotifyPayload): FlexMessage {
             backgroundColor: '#EEF3F8',
             cornerRadius: '10px',
             contents: [
-                { type: 'text', text: 'Business Notification', size: 'sm', color: '#475467', weight: 'bold' },
+                { type: 'text', text: 'การแจ้งเตือน', size: 'sm', color: '#475467', weight: 'bold' },
                 {
                     type: 'box',
                     layout: 'horizontal',
@@ -273,7 +273,7 @@ function buildFlexMessage(payload: NotifyPayload): FlexMessage {
                         { type: 'text', text: meta.badge, size: 'sm', color: meta.color, weight: 'bold' },
                     ],
                 },
-                { type: 'text', text: `Date: ${currentDateLabel}`, size: 'sm', color: '#475467', margin: 'sm' },
+                { type: 'text', text: `วันที่: ${currentDateLabel}`, size: 'sm', color: '#475467', margin: 'sm' },
             ],
         },
         {
@@ -287,7 +287,7 @@ function buildFlexMessage(payload: NotifyPayload): FlexMessage {
         },
         {
             type: 'text',
-            text: payload.projectName ? `Project: ${payload.projectName}` : 'Project: -',
+            text: payload.projectName ? `โครงการ: ${payload.projectName}` : 'โครงการ: -',
             size: 'sm',
             color: '#4B5563',
             margin: 'sm',
@@ -307,7 +307,7 @@ function buildFlexMessage(payload: NotifyPayload): FlexMessage {
     if (payload.comment) {
         bodyContents.push({
             type: 'text',
-            text: 'Comment',
+            text: 'คอมเมนต์',
             size: 'sm',
             color: '#6B7280',
             margin: 'md',
@@ -351,7 +351,7 @@ function buildFlexMessage(payload: NotifyPayload): FlexMessage {
                         type: 'button',
                         action: {
                             type: 'uri',
-                            label: 'View Task',
+                            label: 'ดูรายละเอียดงาน',
                             uri: taskDetailUrl,
                         },
                         style: 'primary',

@@ -17,6 +17,7 @@ import LinearLoadingScreen from '@/components/LinearLoadingScreen';
 import { getStatusColor, getStatusLabel } from '@/utils/statusUtils';
 import { useAppContext } from '@/contexts/AppContext';
 import { createTask as fbCreateTask } from '@/lib/firestore';
+import { useConfirmModal } from '@/contexts/ConfirmModalContext';
 
 // Priority helpers
 const PRIORITIES = ['urgent', 'high', 'medium', 'low'] as const;
@@ -85,6 +86,7 @@ export default function TaskBoardPage() {
     handleUpdateTaskStatus, handleUpdateTaskTimeline,
     handleUpdateTaskProgress, handleUpdateTaskPriority,
   } = useAppContext();
+  const modal = useConfirmModal();
 
   const [activeTab, setActiveTab] = useState<'table' | 'kanban' | 'calendar'>('table');
   const [activeOwnerDropdown, setActiveOwnerDropdown] = useState<string | null>(null);
@@ -155,7 +157,7 @@ export default function TaskBoardPage() {
     if (!activeProject) return;
     const trimmedName = projectNameDraft.trim();
     if (!trimmedName) {
-      alert('Project name is required.');
+      void modal.alert('ต้องระบุชื่อโครงการ', { variant: 'warning' });
       return;
     }
     try {
@@ -169,7 +171,7 @@ export default function TaskBoardPage() {
       setShowProjectSettings(false);
     } catch (error) {
       console.error('Failed to update project settings:', error);
-      alert('Cannot update project settings. Please try again.');
+      void modal.error('ไม่สามารถอัปเดตการตั้งค่าโครงการได้ โปรดลองอีกครั้ง');
     } finally {
       setSavingProjectSettings(false);
     }
@@ -178,10 +180,15 @@ export default function TaskBoardPage() {
   const handleDeleteProject = useCallback(async () => {
     if (!activeProject || deletingProject) return;
     if (projects.length <= 1) {
-      alert('At least one workspace is required.');
+      void modal.alert('ต้องมีพื้นที่ทำงานอย่างน้อยหนึ่งรายการ', { variant: 'warning' });
       return;
     }
-    const confirmed = window.confirm(`Delete workspace "${activeProject.name}" and all tasks in it?`);
+    const confirmed = await modal.confirm({
+      title: 'ยืนยันการลบ',
+      message: `คุณต้องการลบพื้นที่ทำงาน "${activeProject.name}" และงานทั้งหมดหรือไม่?`,
+      description: 'การดำเนินการนี้ไม่สามารถย้อนกลับได้',
+      confirmLabel: 'ลบ',
+    });
     if (!confirmed) return;
 
     try {
@@ -190,11 +197,11 @@ export default function TaskBoardPage() {
       setShowProjectSettings(false);
     } catch (error) {
       console.error('Failed to delete workspace:', error);
-      alert('Cannot delete workspace. Please try again.');
+      void modal.error('ไม่สามารถลบพื้นที่ทำงานได้ โปรดลองอีกครั้ง');
     } finally {
       setDeletingProject(false);
     }
-  }, [activeProject, deleteWorkspace, deletingProject, projects.length]);
+  }, [activeProject, deleteWorkspace, deletingProject, projects.length, modal]);
 
   const memberTypeByName = useMemo(() => {
     const map = new Map<string, 'team' | 'crew'>();
@@ -348,7 +355,7 @@ export default function TaskBoardPage() {
 
         return {
           name: task.name,
-          ownerLabel: ownerNames.length > 0 ? ownerNames.join(', ') : 'Unassigned',
+          ownerLabel: ownerNames.length > 0 ? ownerNames.join(', ') : 'ยังไม่ระบุ',
           crewLabel: crewNames.length > 0 ? crewNames.join(', ') : '-',
           timeLabel: toLocalTimeLabel(task.updatedAt),
         };
@@ -373,7 +380,7 @@ export default function TaskBoardPage() {
   const allGroups = useMemo(() => {
     const grouped: Record<string, Task[]> = {};
     filteredTasks.forEach((task) => {
-      const cat = task.category || 'No Category';
+      const cat = task.category || 'ไม่มีหมวดหมู่';
       if (!grouped[cat]) grouped[cat] = [];
       grouped[cat].push(task);
     });
@@ -447,12 +454,12 @@ export default function TaskBoardPage() {
 
     const existingCategories = new Set(
       [
-        ...projectTasks.map((task) => (task.category || 'No Category').toLowerCase()),
+        ...projectTasks.map((task) => (task.category || 'ไม่มีหมวดหมู่').toLowerCase()),
         ...manualCategories.map((category) => category.toLowerCase()),
       ]
     );
     if (existingCategories.has(categoryName.toLowerCase())) {
-      alert('Category already exists');
+      void modal.alert('มีหมวดหมู่นี้อยู่แล้ว', { variant: 'warning' });
       return;
     }
 
@@ -593,7 +600,7 @@ export default function TaskBoardPage() {
       setPendingAddCategory(null);
     } catch (error) {
       console.error('Failed to add task:', error);
-      alert('Cannot add task. Please try again.');
+      void modal.error('ไม่สามารถเพิ่มงานได้ โปรดลองอีกครั้ง');
     } finally {
       setIsCreatingTask(false);
     }
@@ -607,7 +614,7 @@ export default function TaskBoardPage() {
       setPendingDeleteTask(null);
     } catch (error) {
       console.error('Failed to delete task:', error);
-      alert('Cannot delete task. Please try again.');
+      void modal.error('ไม่สามารถลบงานได้ โปรดลองอีกครั้ง');
     } finally {
       setIsDeletingTask(false);
     }
@@ -615,7 +622,10 @@ export default function TaskBoardPage() {
 
   const handleSendLineAdminReport = async () => {
     if (isSendingLineReport) return;
-    const confirmed = window.confirm('Send project report to LINE admin now?');
+    const confirmed = await modal.confirm({
+      title: 'ส่งรายงาน LINE',
+      message: 'ส่งรายงานโครงการไปยังผู้ดูแลระบบ LINE ตอนนี้หรือไม่?',
+    });
     if (!confirmed) return;
 
     const reportType = notificationSettings.lineReportType || 'project-summary';
@@ -685,10 +695,10 @@ export default function TaskBoardPage() {
         throw new Error(data?.error || 'Failed to send report');
       }
 
-      alert('Report sent to LINE admin successfully');
+      void modal.success('ส่งรายงานไปยังผู้ดูแลระบบ LINE เรียบร้อยแล้ว');
     } catch (error) {
       console.error('Failed to send LINE admin report:', error);
-      alert('Cannot send report to LINE admin. Please check LINE settings.');
+      void modal.error('ไม่สามารถส่งรายงานไปยังผู้ดูแลระบบ LINE ได้ โปรดตรวจสอบการตั้งค่า LINE');
     } finally {
       setIsSendingLineReport(false);
     }
@@ -739,7 +749,7 @@ export default function TaskBoardPage() {
         const text = (event.target?.result as string).replace(/^\uFEFF/, '');
         const lines = text.split(/\r?\n/).filter((line) => line.trim() !== '');
         if (lines.length < 2) {
-          alert('CSV has no data rows.');
+          void modal.alert('CSV ไม่มีแถวข้อมูล', { variant: 'warning' });
           return;
         }
 
@@ -884,13 +894,13 @@ export default function TaskBoardPage() {
           } else {
             setTasks([...tasks, ...newTasks]);
           }
-          alert(`Imported ${newTasks.length} task(s) from CSV successfully.`);
+          void modal.success(`นำเข้างาน ${newTasks.length} รายการจาก CSV สำเร็จ`);
         } else {
-          alert('No valid task rows found in CSV.');
+          void modal.alert('ไม่พบแถวงานที่ถูกต้องใน CSV', { variant: 'warning' });
         }
       } catch (err) {
         console.error(err);
-        alert('Cannot import CSV. Please check file format and required columns.');
+        void modal.error('ไม่สามารถนำเข้า CSV ได้ โปรดตรวจสอบรูปแบบไฟล์และคอลัมน์ที่จำเป็น');
       }
     };
 
@@ -906,7 +916,7 @@ export default function TaskBoardPage() {
       <header className="min-h-[64px] bg-white flex flex-wrap items-center px-4 sm:px-6 lg:px-8 py-3 border-b border-[#d0d4e4] gap-3 shrink-0 transition-all">
         <div className="flex-1 min-w-0">
           <h1 className="text-[22px] sm:text-[28px] font-bold tracking-tight text-[#323338] truncate flex items-center gap-2">
-            {activeProject ? activeProject.name : 'Select a Project'}
+            {activeProject ? activeProject.name : 'เลือกโครงการ'}
             {/* Overdue badge */}
             {overdueCount > 0 && (
               <span className="flex items-center gap-1 bg-[#ffebef] text-[#e2445c] px-2.5 py-0.5 rounded-full text-[12px] font-bold animate-pulse">
@@ -929,23 +939,23 @@ export default function TaskBoardPage() {
                 type="button"
                 onClick={() => setShowProjectSettings((prev) => !prev)}
                 className="px-2.5 py-1 rounded-md border border-[#d0d4e4] bg-white text-[#323338] text-[12px] font-medium hover:bg-[#f5f6f8] transition-colors"
-                title={showProjectSettings ? 'Close project settings' : 'Edit project settings'}
+                title={showProjectSettings ? 'ปิดการตั้งค่าโครงการ' : 'แก้ไขการตั้งค่าโครงการ'}
               >
-                {showProjectSettings ? 'Close Project Settings' : 'Edit Project Settings'}
+                {showProjectSettings ? 'ปิดการตั้งค่าโครงการ' : 'แก้ไขการตั้งค่าโครงการ'}
               </button>
             </div>
           )}
           {activeProject && showProjectSettings && (
             <div className="mt-2 max-w-[460px] rounded-xl border border-[#d0d4e4] bg-[#f8fafc] p-3 flex flex-col gap-2">
-              <label className="text-[12px] font-medium text-[#495d71]">Project Name</label>
+              <label className="text-[12px] font-medium text-[#495d71]">ชื่อโครงการ</label>
               <input
                 type="text"
                 value={projectNameDraft}
                 onChange={(e) => setProjectNameDraft(e.target.value)}
-                placeholder="Project name"
+                placeholder="ชื่อโครงการ"
                 className="w-full rounded-lg border border-[#c4cede] bg-white px-3 py-2 text-[13px] text-[#233548] outline-none focus:border-[#0073ea] focus:ring-2 focus:ring-[#0073ea]/20"
               />
-              <label className="text-[12px] font-medium text-[#495d71]">Project Status</label>
+              <label className="text-[12px] font-medium text-[#495d71]">สถานะโครงการ</label>
               <select
                 value={projectStatusDraft}
                 onChange={(e) => setProjectStatusDraft(e.target.value as Project['status'])}
@@ -963,9 +973,9 @@ export default function TaskBoardPage() {
                   onClick={() => void handleDeleteProject()}
                   disabled={deletingProject || projects.length <= 1}
                   className="mr-auto px-3 py-1.5 rounded-lg border border-[#e2445c] bg-[#fff2f4] text-[#c62846] text-[12px] font-medium hover:bg-[#ffe7ec] disabled:opacity-50 disabled:cursor-not-allowed"
-                  title={projects.length <= 1 ? 'Cannot delete the last workspace' : 'Delete workspace'}
+                  title={projects.length <= 1 ? 'ไม่สามารถลบพื้นที่ทำงานสุดท้ายได้' : 'ลบพื้นที่ทำงาน'}
                 >
-                  {deletingProject ? 'Deleting...' : 'Delete Workspace'}
+                  {deletingProject ? 'กำลังลบ...' : 'ลบพื้นที่ทำงาน'}
                 </button>
                 <button
                   type="button"
@@ -976,7 +986,7 @@ export default function TaskBoardPage() {
                   }}
                   className="px-3 py-1.5 rounded-lg border border-[#cfd6e4] bg-white text-[#4a5f75] text-[12px] font-medium hover:bg-[#eef2f8]"
                 >
-                  Cancel
+                  ยกเลิก
                 </button>
                 <button
                   type="button"
@@ -984,7 +994,7 @@ export default function TaskBoardPage() {
                   disabled={!projectSettingsChanged || savingProjectSettings || !projectNameDraft.trim()}
                   className="px-3 py-1.5 rounded-lg border border-[#0073ea] bg-[#0073ea] text-white text-[12px] font-medium hover:bg-[#0063c7] disabled:opacity-60 disabled:cursor-not-allowed"
                 >
-                  {savingProjectSettings ? 'Saving...' : 'Save Project'}
+                  {savingProjectSettings ? 'กำลังบันทึก...' : 'บันทึกโครงการ'}
                 </button>
               </div>
             </div>
@@ -995,7 +1005,7 @@ export default function TaskBoardPage() {
             <Search className="absolute left-3 top-2.5 h-[18px] w-[18px] text-[#676879]" />
             <input
               type="text"
-              placeholder="Search tasks..."
+              placeholder="ค้นหางาน..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-9 pr-4 py-2 bg-[#f5f6f8] border border-[#d0d4e4] rounded-full text-[15px] focus:ring-2 focus:ring-[#0073ea] focus:border-[#0073ea] outline-none w-full sm:w-56 transition-all focus:bg-white placeholder:text-[#676879]"
@@ -1011,24 +1021,24 @@ export default function TaskBoardPage() {
           <button
             onClick={handleImportButtonClick}
             className="flex items-center gap-2 px-3 py-2 bg-[#f5f6f8] hover:bg-[#d0d4e4] text-[#323338] border border-[#d0d4e4] rounded-lg transition-colors font-medium text-[13px]"
-            title="Import CSV"
+            title="นำเข้า CSV"
           >
-            <Download className="w-4 h-4" /> Import
+            <Download className="w-4 h-4" /> นำเข้า
           </button>
           <button
             onClick={handleExportCSV}
             className="flex items-center gap-2 px-3 py-2 bg-[#f5f6f8] hover:bg-[#d0d4e4] text-[#323338] border border-[#d0d4e4] rounded-lg transition-colors font-medium text-[13px]"
-            title="Export CSV"
+            title="ส่งออก CSV"
           >
-            <Upload className="w-4 h-4" /> Export
+            <Upload className="w-4 h-4" /> ส่งออก
           </button>
           <button
             onClick={() => void handleSendLineAdminReport()}
             disabled={isSendingLineReport}
             className="flex items-center gap-2 px-3 py-2 bg-[#0073ea] hover:bg-[#0060c0] text-white border border-[#0073ea] rounded-lg transition-colors font-medium text-[13px] disabled:opacity-60 disabled:cursor-not-allowed"
-            title="Send report to LINE admin"
+            title="ส่งรายงานให้ผู้ดูแลระบบ LINE"
           >
-            <Send className="w-4 h-4" /> {isSendingLineReport ? 'Sending...' : 'Send Report'}
+            <Send className="w-4 h-4" /> {isSendingLineReport ? 'กำลังส่ง...' : 'ส่งรายงาน'}
           </button>
           <button
             type="button"
@@ -1036,7 +1046,7 @@ export default function TaskBoardPage() {
             className="flex items-center gap-2 px-3 py-2 bg-[#f5f6f8] hover:bg-[#d0d4e4] text-[#323338] border border-[#d0d4e4] rounded-lg transition-colors font-medium text-[13px]"
             title="Open 2-day report page"
           >
-            2-Day Report PDF
+            รายงาน 2 วัน (PDF)
           </button>
         </div>
       </header>
@@ -1049,19 +1059,19 @@ export default function TaskBoardPage() {
               onClick={() => setActiveTab('table')}
               className={`pb-3 flex items-center gap-2 border-b-[3px] font-medium transition-colors whitespace-nowrap ${activeTab === 'table' ? 'border-[#0073ea] text-[#0073ea]' : 'border-transparent text-[#676879] hover:text-[#323338]'}`}
             >
-              <Activity className="w-4 h-4" /> Main Table
+              <Activity className="w-4 h-4" /> ตารางหลัก
             </button>
             <button
               onClick={() => setActiveTab('kanban')}
               className={`pb-3 flex items-center gap-2 border-b-[3px] font-medium transition-colors whitespace-nowrap ${activeTab === 'kanban' ? 'border-[#0073ea] text-[#0073ea]' : 'border-transparent text-[#676879] hover:text-[#323338]'}`}
             >
-              <LayoutGrid className="w-4 h-4" /> Kanban
+              <LayoutGrid className="w-4 h-4" /> คัมบัง
             </button>
             <button
               onClick={() => setActiveTab('calendar')}
               className={`pb-3 flex items-center gap-2 border-b-[3px] font-medium transition-colors whitespace-nowrap ${activeTab === 'calendar' ? 'border-[#0073ea] text-[#0073ea]' : 'border-transparent text-[#676879] hover:text-[#323338]'}`}
             >
-              <CalendarDays className="w-4 h-4" /> Calendar
+              <CalendarDays className="w-4 h-4" /> ปฏิทิน
             </button>
           </div>
 
@@ -1074,7 +1084,7 @@ export default function TaskBoardPage() {
                 : 'bg-white text-[#676879] border-[#d0d4e4] hover:bg-[#f5f6f8]'
                 }`}
             >
-              <Filter className="w-3.5 h-3.5" /> Filter
+              <Filter className="w-3.5 h-3.5" /> ตัวกรอง
               {hasActiveFilters && (
                 <span className="ml-1 bg-[#0073ea] text-white w-4 h-4 rounded-full text-[10px] flex items-center justify-center">!</span>
               )}
@@ -1086,10 +1096,10 @@ export default function TaskBoardPage() {
               onChange={e => setSortBy(e.target.value)}
               className="px-3 py-1.5 rounded-lg text-[13px] font-medium border border-[#d0d4e4] bg-white text-[#676879] outline-none cursor-pointer hover:bg-[#f5f6f8]"
             >
-              <option value="default">Default</option>
-              <option value="priority">Priority</option>
-              <option value="dueDate">Due Date</option>
-              <option value="progress">Progress</option>
+              <option value="default">ค่าเริ่มต้น</option>
+              <option value="priority">ความสำคัญ</option>
+              <option value="dueDate">วันครบกำหนด</option>
+              <option value="progress">ความคืบหน้า</option>
             </select>
           </div>
         </div>
@@ -1104,11 +1114,11 @@ export default function TaskBoardPage() {
               className={`px-3 py-1.5 rounded-lg text-[13px] border outline-none cursor-pointer transition-colors ${filterStatus !== 'all' ? 'border-[#0073ea] bg-[#cce5ff] text-[#0052cc]' : 'border-[#d0d4e4] bg-white text-[#676879]'
                 }`}
             >
-              <option value="all">All Status</option>
-              <option value="not-started">Not Started</option>
-              <option value="in-progress">Working on it</option>
-              <option value="completed">Done</option>
-              <option value="delayed">Stuck</option>
+              <option value="all">สถานะทั้งหมด</option>
+              <option value="not-started">ยังไม่เริ่ม</option>
+              <option value="in-progress">กำลังดำเนินการ</option>
+              <option value="completed">เสร็จสิ้น</option>
+              <option value="delayed">ติดขัด</option>
             </select>
 
             {/* Priority Filter */}
@@ -1118,12 +1128,12 @@ export default function TaskBoardPage() {
               className={`px-3 py-1.5 rounded-lg text-[13px] border outline-none cursor-pointer transition-colors ${filterPriority !== 'all' ? 'border-[#0073ea] bg-[#cce5ff] text-[#0052cc]' : 'border-[#d0d4e4] bg-white text-[#676879]'
                 }`}
             >
-              <option value="all">All Priority</option>
-              <option value="urgent">Urgent</option>
-              <option value="high">High</option>
-              <option value="medium">Medium</option>
-              <option value="low">Low</option>
-              <option value="none">- No Priority</option>
+              <option value="all">ความสำคัญทั้งหมด</option>
+              <option value="urgent">ด่วนมาก</option>
+              <option value="high">สูง</option>
+              <option value="medium">ปานกลาง</option>
+              <option value="low">ต่ำ</option>
+              <option value="none">- ไม่ระบุความสำคัญ</option>
             </select>
 
             {/* Owner Filter */}
@@ -1133,8 +1143,8 @@ export default function TaskBoardPage() {
               className={`px-3 py-1.5 rounded-lg text-[13px] border outline-none cursor-pointer transition-colors ${filterOwner !== 'all' ? 'border-[#0073ea] bg-[#cce5ff] text-[#0052cc]' : 'border-[#d0d4e4] bg-white text-[#676879]'
                 }`}
             >
-              <option value="all">All Owners</option>
-              <option value="unassigned">Unassigned</option>
+              <option value="all">ผู้รับผิดชอบทั้งหมด</option>
+              <option value="unassigned">ยังไม่ระบุ</option>
               {teamMembers.filter((member) => member.memberType !== 'crew').map(m => (
                 <option key={m.id} value={m.name}>{m.name}</option>
               ))}
@@ -1145,12 +1155,12 @@ export default function TaskBoardPage() {
                 onClick={clearFilters}
                 className="flex items-center gap-1 px-3 py-1.5 text-[13px] text-[#e2445c] hover:bg-[#ffebef] rounded-lg transition-colors font-medium"
               >
-                <X className="w-3.5 h-3.5" /> Clear All
+                <X className="w-3.5 h-3.5" /> ล้างทั้งหมด
               </button>
             )}
 
             <span className="text-[12px] text-[#a0a2b1] ml-0 sm:ml-auto w-full sm:w-auto">
-              {filteredTasks.length} / {projectTasks.length} tasks
+              {filteredTasks.length} / {projectTasks.length} งาน
             </span>
           </div>
         )}
@@ -1162,28 +1172,28 @@ export default function TaskBoardPage() {
           <div className="space-y-10 max-w-[1600px]">
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
               <div className="bg-white border border-[#d0d4e4] rounded-xl px-4 py-3">
-                <div className="text-[11px] text-[#676879] uppercase tracking-wider font-semibold">Total Tasks</div>
+                <div className="text-[11px] text-[#676879] uppercase tracking-wider font-semibold">งานทั้งหมด</div>
                 <div className="text-[24px] font-black text-[#323338] mt-1">{projectTasks.length}</div>
               </div>
               <div className="bg-white border border-[#d0d4e4] rounded-xl px-4 py-3">
-                <div className="text-[11px] text-[#676879] uppercase tracking-wider font-semibold">Filtered</div>
+                <div className="text-[11px] text-[#676879] uppercase tracking-wider font-semibold">ที่ถูกกรอง</div>
                 <div className="text-[24px] font-black text-[#0073ea] mt-1">{filteredTasks.length}</div>
               </div>
               <div className="bg-white border border-[#d0d4e4] rounded-xl px-4 py-3">
-                <div className="text-[11px] text-[#676879] uppercase tracking-wider font-semibold">Unassigned</div>
+                <div className="text-[11px] text-[#676879] uppercase tracking-wider font-semibold">ยังไม่ระบุผู้รับผิดชอบ</div>
                 <div className="text-[24px] font-black text-[#fdab3d] mt-1">{unassignedCount}</div>
               </div>
               <div className="bg-white border border-[#d0d4e4] rounded-xl px-4 py-3">
-                <div className="text-[11px] text-[#676879] uppercase tracking-wider font-semibold">At Risk</div>
+                <div className="text-[11px] text-[#676879] uppercase tracking-wider font-semibold">มีความเสี่ยง</div>
                 <div className="text-[24px] font-black text-[#e2445c] mt-1">{overdueCount + dueSoonCount}</div>
               </div>
             </div>
 
             <div className="flex items-center justify-between gap-3 flex-wrap">
               <div className="text-[13px] text-[#676879]">
-                Categories: <span className="font-semibold text-[#323338]">{groupCategoryKeys.length}</span>
+                หมวดหมู่: <span className="font-semibold text-[#323338]">{groupCategoryKeys.length}</span>
                 {hideCompletedTasks && hiddenCompletedCount > 0 && (
-                  <span className="ml-2 text-[#a0a2b1]">({hiddenCompletedCount} Done hidden)</span>
+                  <span className="ml-2 text-[#a0a2b1]">({hiddenCompletedCount} เสร็จสิ้นที่ถูกซ่อน)</span>
                 )}
               </div>
               <div className="flex items-center gap-2 w-full sm:w-auto flex-wrap sm:justify-end">
@@ -1196,7 +1206,7 @@ export default function TaskBoardPage() {
                       : 'border-[#d0d4e4] bg-white text-[#323338] hover:bg-[#f5f6f8]'
                   }`}
                 >
-                  {hideCompletedTasks ? `Show Done (${hiddenCompletedCount})` : 'Hide Done'}
+                  {hideCompletedTasks ? `แสดงงานที่เสร็จสิ้น (${hiddenCompletedCount})` : 'ซ่อนงานที่เสร็จสิ้น'}
                 </button>
                 <button
                   type="button"
@@ -1204,7 +1214,7 @@ export default function TaskBoardPage() {
                   disabled={groupCategoryKeys.length === 0}
                   className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[13px] font-medium rounded-lg border border-[#d0d4e4] bg-white text-[#323338] hover:bg-[#f5f6f8] disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {allCategoriesCollapsed ? 'Expand All' : 'Collapse All'}
+                  {allCategoriesCollapsed ? 'ขยายทั้งหมด' : 'ย่อทั้งหมด'}
                 </button>
                 {!isAddingCategory ? (
                   <button
@@ -1212,7 +1222,7 @@ export default function TaskBoardPage() {
                     onClick={() => setIsAddingCategory(true)}
                     className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[13px] font-medium rounded-lg border border-[#d0d4e4] bg-white text-[#323338] hover:bg-[#f5f6f8]"
                   >
-                    <Plus className="w-3.5 h-3.5" /> Add Category
+                    <Plus className="w-3.5 h-3.5" /> เพิ่มหมวดหมู่
                   </button>
                 ) : (
                   <div className="flex items-center gap-2 w-full sm:w-auto">
@@ -1227,7 +1237,7 @@ export default function TaskBoardPage() {
                           setNewCategoryName('');
                         }
                       }}
-                      placeholder="Category name..."
+                      placeholder="ชื่อหมวดหมู่..."
                       className="h-9 px-3 text-[13px] bg-white border border-[#d0d4e4] rounded-lg outline-none focus:ring-2 focus:ring-[#0073ea] min-w-[180px] w-full sm:w-auto"
                       autoFocus
                     />
@@ -1255,24 +1265,24 @@ export default function TaskBoardPage() {
 
             {groupCategoryKeys.length === 0 && (
               <div className="text-center py-16 text-[#676879]">
-                <div className="text-4xl mb-3 opacity-50">Search</div>
-                <div className="text-lg font-medium text-[#323338]">No tasks found</div>
+                <div className="text-4xl mb-3 opacity-50">ค้นหา</div>
+                <div className="text-lg font-medium text-[#323338]">ไม่พบงาน</div>
                 <div className="text-sm mt-1">
                   {hasOnlyHiddenDoneTasks
-                    ? 'All visible tasks are Done and currently hidden'
-                    : 'Try adjusting your filters or search query'}
+                    ? 'งานทั้งหมดที่มองเห็นได้เสร็จสิ้นแล้วและถูกซ่อนอยู่'
+                    : 'ลองปรับตัวกรองหรือคำค้นหาของคุณ'}
                 </div>
                 {hasOnlyHiddenDoneTasks && (
                   <button
                     onClick={() => setHideCompletedTasks(false)}
                     className="mt-4 px-4 py-2 bg-[#0073ea] text-white rounded-lg text-sm font-medium hover:bg-[#0060c0] transition-colors"
                   >
-                    Show Done Tasks
+                    แสดงงานที่เสร็จสิ้น
                   </button>
                 )}
                 {hasActiveFilters && (
                   <button onClick={clearFilters} className="mt-4 px-4 py-2 bg-[#0073ea] text-white rounded-lg text-sm font-medium hover:bg-[#0060c0] transition-colors">
-                    Clear Filters
+                    ล้างตัวกรอง
                   </button>
                 )}
               </div>
@@ -1311,13 +1321,13 @@ export default function TaskBoardPage() {
                     <table className="w-full min-w-[1120px] text-left text-[14px]">
                       <thead>
                         <tr className="border-b border-[#d0d4e4] text-[#676879] font-normal bg-white">
-                          <th className="px-4 py-3 md:sticky md:left-0 md:z-10 w-[340px] font-normal border-r border-[#d0d4e4]">Item</th>
-                          <th className="px-4 py-3 w-[120px] font-normal border-r border-[#d0d4e4] text-center">Owner</th>
-                          <th className="px-4 py-3 w-[120px] font-normal border-r border-[#d0d4e4] text-center">Crew</th>
-                          <th className="px-0 py-3 w-[140px] font-normal border-r border-[#d0d4e4] text-center">Status</th>
-                          <th className="px-0 py-3 w-[100px] font-normal border-r border-[#d0d4e4] text-center">Priority</th>
-                          <th className="px-4 py-3 w-[220px] font-normal border-r border-[#d0d4e4] text-center">Timeline</th>
-                          <th className="px-4 py-3 w-[100px] font-normal text-center">Progress</th>
+                          <th className="px-4 py-3 md:sticky md:left-0 md:z-10 w-[340px] font-normal border-r border-[#d0d4e4]">งาน</th>
+                          <th className="px-4 py-3 w-[120px] font-normal border-r border-[#d0d4e4] text-center">ผู้รับผิดชอบ</th>
+                          <th className="px-4 py-3 w-[120px] font-normal border-r border-[#d0d4e4] text-center">ทีมช่าง</th>
+                          <th className="px-0 py-3 w-[140px] font-normal border-r border-[#d0d4e4] text-center">สถานะ</th>
+                          <th className="px-0 py-3 w-[100px] font-normal border-r border-[#d0d4e4] text-center">ความสำคัญ</th>
+                          <th className="px-4 py-3 w-[220px] font-normal border-r border-[#d0d4e4] text-center">กำหนดเวลา</th>
+                          <th className="px-4 py-3 w-[100px] font-normal text-center">ความคืบหน้า</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -1423,13 +1433,13 @@ export default function TaskBoardPage() {
                                       transform: 'translateX(-50%)',
                                     }}
                                   >
-                                    <div className="px-3 py-1 text-xs font-semibold text-[#676879] uppercase tracking-wider">Assign owner</div>
+                                    <div className="px-3 py-1 text-xs font-semibold text-[#676879] uppercase tracking-wider">กำหนดผู้รับผิดชอบ</div>
                                     <div className="max-h-64 overflow-y-auto mt-1">
                                       <div
                                         className="px-3 py-2 text-sm hover:bg-[#f5f6f8] cursor-pointer text-[#676879] italic border-b border-[#e6e9ef]"
                                         onClick={() => { handleUpdateTaskOwners(task.id, [...crewNames]); }}
                                       >
-                                        Unassigned owner
+                                        ไม่ได้กำหนดผู้รับผิดชอบ
                                       </div>
                                       {teamMembers.filter((member) => member.memberType !== 'crew').map(member => (
                                         <div
@@ -1455,7 +1465,7 @@ export default function TaskBoardPage() {
                                       ))}
                                     </div>
                                     <div className="px-3 pt-2 mt-1 border-t border-[#e6e9ef] flex items-center justify-between">
-                                      <span className="text-[11px] text-[#676879]">{ownerNames.length} selected</span>
+                                      <span className="text-[11px] text-[#676879]">{ownerNames.length} รายการที่เลือก</span>
                                       <button
                                         onClick={() => {
                                           setActiveOwnerDropdown(null);
@@ -1463,7 +1473,7 @@ export default function TaskBoardPage() {
                                         }}
                                         className="text-[11px] px-2 py-1 rounded bg-[#f5f6f8] hover:bg-[#e6e9ef] text-[#323338]"
                                       >
-                                        Done
+                                        เสร็จสิ้น
                                       </button>
                                     </div>
                                   </div>,
@@ -1490,13 +1500,13 @@ export default function TaskBoardPage() {
                                       transform: 'translateX(-50%)',
                                     }}
                                   >
-                                    <div className="px-3 py-1 text-xs font-semibold text-[#676879] uppercase tracking-wider">Assign crew</div>
+                                    <div className="px-3 py-1 text-xs font-semibold text-[#676879] uppercase tracking-wider">กำหนดทีมช่าง</div>
                                     <div className="max-h-64 overflow-y-auto mt-1">
                                       <div
                                         className="px-3 py-2 text-sm hover:bg-[#f5f6f8] cursor-pointer text-[#676879] italic border-b border-[#e6e9ef]"
                                         onClick={() => { handleUpdateTaskOwners(task.id, [...ownerNames]); }}
                                       >
-                                        No crew
+                                        ไม่มีทีมช่าง
                                       </div>
                                       {teamMembers.filter((member) => member.memberType === 'crew').map(member => (
                                         <div
@@ -1522,7 +1532,7 @@ export default function TaskBoardPage() {
                                       ))}
                                     </div>
                                     <div className="px-3 pt-2 mt-1 border-t border-[#e6e9ef] flex items-center justify-between">
-                                      <span className="text-[11px] text-[#676879]">{crewNames.length} selected</span>
+                                      <span className="text-[11px] text-[#676879]">{crewNames.length} รายการที่เลือก</span>
                                       <button
                                         onClick={() => {
                                           setActiveCrewDropdown(null);
@@ -1530,7 +1540,7 @@ export default function TaskBoardPage() {
                                         }}
                                         className="text-[11px] px-2 py-1 rounded bg-[#f5f6f8] hover:bg-[#e6e9ef] text-[#323338]"
                                       >
-                                        Done
+                                        เสร็จสิ้น
                                       </button>
                                     </div>
                                   </div>,
@@ -1670,7 +1680,7 @@ export default function TaskBoardPage() {
                     >
                       <div className="w-2 shrink-0 bg-[#d0d4e4]"></div>
                       <div className="flex items-center px-4 flex-1 text-[#676879] gap-2 font-normal">
-                        <Plus className="w-4 h-4" /> Add Task
+                        <Plus className="w-4 h-4" /> เพิ่มงาน
                       </div>
                     </div>
                     </div>
@@ -1701,11 +1711,11 @@ export default function TaskBoardPage() {
         <div className="fixed inset-0 z-[100] bg-black/40 backdrop-blur-[1px] flex items-center justify-center p-4">
           <div className="w-full max-w-md bg-white rounded-xl border border-[#d0d4e4] shadow-2xl">
             <div className="px-5 py-4 border-b border-[#e6e9ef]">
-              <h3 className="text-[18px] font-bold text-[#323338]">Confirm Add Task</h3>
+              <h3 className="text-[18px] font-bold text-[#323338]">ยืนยันการเพิ่มงาน</h3>
             </div>
             <div className="px-5 py-4 text-[14px] text-[#323338] space-y-2">
               <p>
-                Add new task in category <span className="font-semibold">{pendingAddCategory}</span>?
+                เพิ่มงานใหม่ในหมวดหมู่ <span className="font-semibold">{pendingAddCategory}</span> หรือไม่?
               </p>
             </div>
             <div className="px-5 py-4 border-t border-[#e6e9ef] flex items-center justify-end gap-2">
@@ -1715,7 +1725,7 @@ export default function TaskBoardPage() {
                 disabled={isCreatingTask}
                 className="px-3 py-2 rounded-lg text-[13px] font-medium bg-[#f5f6f8] text-[#323338] hover:bg-[#e6e9ef] disabled:opacity-60"
               >
-                Cancel
+                ยกเลิก
               </button>
               <button
                 type="button"
@@ -1723,7 +1733,7 @@ export default function TaskBoardPage() {
                 disabled={isCreatingTask}
                 className="px-3 py-2 rounded-lg text-[13px] font-medium bg-[#0073ea] text-white hover:bg-[#0060c0] disabled:opacity-60"
               >
-                Add
+                เพิ่ม
               </button>
             </div>
           </div>
@@ -1734,14 +1744,14 @@ export default function TaskBoardPage() {
         <div className="fixed inset-0 z-[100] bg-black/40 backdrop-blur-[1px] flex items-center justify-center p-4">
           <div className="w-full max-w-md bg-white rounded-xl border border-[#d0d4e4] shadow-2xl">
             <div className="px-5 py-4 border-b border-[#e6e9ef]">
-              <h3 className="text-[18px] font-bold text-[#323338]">Confirm Delete</h3>
+              <h3 className="text-[18px] font-bold text-[#323338]">ยืนยันการลบ</h3>
             </div>
             <div className="px-5 py-4 text-[14px] text-[#323338] space-y-2">
               <p>
-                Delete task <span className="font-semibold">{pendingDeleteTask.name}</span>?
+                ลบงาน <span className="font-semibold">{pendingDeleteTask.name}</span> หรือไม่?
               </p>
               <p className="text-[#676879] text-[13px]">
-                This action cannot be undone.
+                การดำเนินการนี้ไม่สามารถยกเลิกได้
               </p>
             </div>
             <div className="px-5 py-4 border-t border-[#e6e9ef] flex items-center justify-end gap-2">
@@ -1751,7 +1761,7 @@ export default function TaskBoardPage() {
                 disabled={isDeletingTask}
                 className="px-3 py-2 rounded-lg text-[13px] font-medium bg-[#f5f6f8] text-[#323338] hover:bg-[#e6e9ef] disabled:opacity-60"
               >
-                Cancel
+                ยกเลิก
               </button>
               <button
                 type="button"
@@ -1759,7 +1769,7 @@ export default function TaskBoardPage() {
                 disabled={isDeletingTask}
                 className="px-3 py-2 rounded-lg text-[13px] font-medium bg-[#e2445c] text-white hover:bg-[#c9344b] disabled:opacity-60"
               >
-                Delete
+                ลบ
               </button>
             </div>
           </div>

@@ -16,20 +16,20 @@ const settingItems: Array<{
 }> = [
     {
         key: 'notifyTaskAssigned',
-        title: 'Notify on task assignment',
-        description: 'Send LINE message when a new owner is assigned to task',
+        title: 'แจ้งเตือนเมื่อมอบหมายงาน',
+        description: 'ส่งข้อความ LINE เมื่อมีการมอบหมายงานให้ผู้รับผิดชอบใหม่',
         icon: UserPlus,
     },
     {
         key: 'notifyTaskStatusChanged',
-        title: 'Notify on status change',
-        description: 'Send LINE message when task status is changed',
+        title: 'แจ้งเตือนเมื่อเปลี่ยนสถานะ',
+        description: 'ส่งข้อความ LINE เมื่อสถานะงานถูกเปลี่ยน',
         icon: RefreshCw,
     },
     {
         key: 'notifyTaskCommentAdded',
-        title: 'Notify on new comment',
-        description: 'Send LINE message when a task update or comment is added',
+        title: 'แจ้งเตือนการแสดงความคิดเห็น',
+        description: 'ส่งข้อความ LINE เมื่อมีการอัปเดตงานหรือแสดงความคิดเห็น',
         icon: MessageSquare,
     },
 ];
@@ -129,7 +129,7 @@ export default function SettingsPage() {
             await updateNotificationSettings({ [key]: !notificationSettings[key] });
         } catch (error) {
             console.error('Failed to update notification settings:', error);
-            alert('Cannot update notification settings. Please try again.');
+            alert('ไม่สามารถอัปเดตการตั้งค่าการแจ้งเตือนได้ โปรดลองอีกครั้ง');
         } finally {
             setSavingKey(null);
         }
@@ -157,10 +157,10 @@ export default function SettingsPage() {
                 employeeReportDueSoonDays: Math.min(Math.max(employeeReportDueSoonDays, 1), 14),
                 employeeReportTestMemberId,
             });
-            alert('LINE report settings saved');
+            alert('บันทึกการตั้งค่ารายงาน LINE แล้ว');
         } catch (error) {
             console.error('Failed to update LINE settings:', error);
-            alert('Cannot update LINE settings. Please try again.');
+            alert('ไม่สามารถอัปเดตการตั้งค่า LINE ได้ โปรดลองอีกครั้ง');
         } finally {
             setIsSavingLineConfig(false);
         }
@@ -287,16 +287,16 @@ export default function SettingsPage() {
                 throw new Error(data?.error || 'Failed to send employee report');
             }
 
-            alert(`Test report sent to ${selectedMember.name}`);
+            alert(`ส่งรายงานทดสอบไปยัง ${selectedMember.name} เรียบร้อยแล้ว`);
         } catch (error) {
             console.error('Failed to send employee report:', error);
-            alert('Cannot send employee test report. Please check LINE settings.');
+            alert('ไม่สามารถส่งรายงานทดสอบให้พนักงานได้ โปรดตรวจสอบการตั้งค่า LINE');
         } finally {
             setIsSendingTest(false);
         }
     };
 
-    if (loading) return <LinearLoadingScreen message="Loading settings..." />;
+    if (loading) return <LinearLoadingScreen message="กำลังโหลดการตั้งค่า..." />;
 
     const isLineConfigChanged =
         lineAdminUserIdDraft.trim() !== (notificationSettings.lineAdminUserId || '').trim() ||
@@ -343,7 +343,7 @@ export default function SettingsPage() {
             <header className="min-h-[64px] bg-white flex items-center px-4 sm:px-6 lg:px-8 py-3 border-b border-[#d0d4e4] gap-4 shrink-0 transition-all">
                 <h1 className="text-[22px] sm:text-[26px] font-bold tracking-tight text-[#323338] truncate flex items-center gap-2">
                     <Bell className="w-7 h-7 text-[#0073ea]" />
-                    LINE Report Center
+                    ศูนย์รายงาน LINE
                 </h1>
             </header>
 
@@ -353,14 +353,14 @@ export default function SettingsPage() {
                         <div className="bg-white border border-[#d0d4e4] rounded-xl p-4 space-y-3">
                             <div className="flex items-center gap-2 text-[15px] font-semibold text-[#323338]">
                                 <Settings2 className="w-4 h-4 text-[#0073ea]" />
-                                Admin Report Settings
+                                การตั้งค่ารายงานผู้ดูแลระบบ
                             </div>
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
                                 <input
                                     type="text"
                                     value={lineAdminUserIdDraft}
                                     onChange={(e) => setLineAdminUserIdDraft(e.target.value)}
-                                    placeholder="LINE Admin User ID"
+                                    placeholder="รหัสผู้ใช้ LINE ของผู้ดูแลระบบ"
                                     className="md:col-span-2 h-10 px-3 border border-[#d0d4e4] rounded-lg text-[14px] outline-none focus:ring-2 focus:ring-[#0073ea]"
                                 />
                                 <select
@@ -368,9 +368,9 @@ export default function SettingsPage() {
                                     onChange={(e) => setLineReportTypeDraft(e.target.value as 'project-summary' | 'today-team-load' | 'completed-last-2-days')}
                                     className="h-10 px-3 border border-[#d0d4e4] rounded-lg text-[14px] outline-none focus:ring-2 focus:ring-[#0073ea] bg-white"
                                 >
-                                    <option value="project-summary">Project Summary</option>
-                                    <option value="today-team-load">Today Team Load</option>
-                                    <option value="completed-last-2-days">Completed (Today + Yesterday)</option>
+                                    <option value="project-summary">สรุปโครงการ</option>
+                                    <option value="today-team-load">ภาระงานทีมวันนี้</option>
+                                    <option value="completed-last-2-days">เสร็จสิ้น (วันนี้ + เมื่อวาน)</option>
                                 </select>
                             </div>
                         </div>
@@ -378,12 +378,12 @@ export default function SettingsPage() {
                         <div className="bg-white border border-[#d0d4e4] rounded-xl p-4 space-y-3">
                             <div className="flex items-center gap-2 text-[15px] font-semibold text-[#323338]">
                                 <Users className="w-4 h-4 text-[#0073ea]" />
-                                Employee Report Settings
+                                การตั้งค่ารายงานพนักงาน
                             </div>
 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                                {renderSwitch(employeeReportEnabled, setEmployeeReportEnabled, 'Enable employee reports', 'Allow sending personal workload reports')}
-                                {renderSwitch(employeeReportIncludeTaskList, setEmployeeReportIncludeTaskList, 'Include task list', 'Include top task rows in report')}
+                                {renderSwitch(employeeReportEnabled, setEmployeeReportEnabled, 'เปิดใช้งานรายงานพนักงาน', 'อนุญาตให้ส่งรายงานภาระงานส่วนบุคคล')}
+                                {renderSwitch(employeeReportIncludeTaskList, setEmployeeReportIncludeTaskList, 'รวมรายชื่อส่วนการทำงาน', 'รวมรายการงานหลักลงในรายงาน')}
                             </div>
 
                             <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
@@ -392,8 +392,8 @@ export default function SettingsPage() {
                                     onChange={(e) => setEmployeeReportFrequency(e.target.value as 'daily' | 'weekly')}
                                     className="h-10 px-3 border border-[#d0d4e4] rounded-lg text-[13px] outline-none bg-white"
                                 >
-                                    <option value="daily">Frequency: Daily</option>
-                                    <option value="weekly">Frequency: Weekly</option>
+                                    <option value="daily">ความถี่: รายวัน</option>
+                                    <option value="weekly">ความถี่: รายสัปดาห์</option>
                                 </select>
                                 <select
                                     value={employeeReportDayOfWeek}
@@ -402,7 +402,7 @@ export default function SettingsPage() {
                                     className="h-10 px-3 border border-[#d0d4e4] rounded-lg text-[13px] outline-none bg-white disabled:opacity-60"
                                 >
                                     {dayOptions.map((day) => (
-                                        <option key={day} value={day}>{`Day: ${day}`}</option>
+                                        <option key={day} value={day}>{`วัน: ${day}`}</option>
                                     ))}
                                 </select>
                                 <div className="relative">
@@ -419,8 +419,8 @@ export default function SettingsPage() {
                                     onChange={(e) => setEmployeeReportScope(e.target.value as 'active-project' | 'all-projects')}
                                     className="h-10 px-3 border border-[#d0d4e4] rounded-lg text-[13px] outline-none bg-white"
                                 >
-                                    <option value="active-project">Scope: Active Project</option>
-                                    <option value="all-projects">Scope: All Projects</option>
+                                    <option value="active-project">ขอบเขต: โครงการปัจจุบัน</option>
+                                    <option value="all-projects">ขอบเขต: โครงการทั้งหมด</option>
                                 </select>
                             </div>
 
@@ -430,8 +430,8 @@ export default function SettingsPage() {
                                     onChange={(e) => setEmployeeReportTemplate(e.target.value as 'compact' | 'detailed')}
                                     className="h-10 px-3 border border-[#d0d4e4] rounded-lg text-[13px] outline-none bg-white"
                                 >
-                                    <option value="compact">Template: Compact</option>
-                                    <option value="detailed">Template: Detailed</option>
+                                    <option value="compact">รูปแบบ: กะทัดรัด</option>
+                                    <option value="detailed">รูปแบบ: ละเอียด</option>
                                 </select>
                                 <input
                                     type="number"
@@ -440,7 +440,7 @@ export default function SettingsPage() {
                                     value={employeeReportMaxItems}
                                     onChange={(e) => setEmployeeReportMaxItems(Number(e.target.value) || 1)}
                                     className="h-10 px-3 border border-[#d0d4e4] rounded-lg text-[13px] outline-none"
-                                    placeholder="Max task items"
+                                    placeholder="จำนวนงานสูงสุด"
                                 />
                                 <input
                                     type="number"
@@ -449,19 +449,19 @@ export default function SettingsPage() {
                                     value={employeeReportDueSoonDays}
                                     onChange={(e) => setEmployeeReportDueSoonDays(Number(e.target.value) || 1)}
                                     className="h-10 px-3 border border-[#d0d4e4] rounded-lg text-[13px] outline-none"
-                                    placeholder="Due soon days"
+                                    placeholder="แจ้งเตือนก่อน (วัน)"
                                 />
                                 <div className="h-10 px-3 border border-[#d0d4e4] rounded-lg text-[12px] text-[#676879] flex items-center">
-                                    Current project: {activeProject?.name || 'None'}
+                                    โครงการปัจจุบัน: {activeProject?.name || 'ไม่มี'}
                                 </div>
                             </div>
 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                                {renderSwitch(employeeReportIncludeOverdue, setEmployeeReportIncludeOverdue, 'Include overdue tasks')}
-                                {renderSwitch(employeeReportIncludeDueSoon, setEmployeeReportIncludeDueSoon, 'Include due soon tasks')}
-                                {renderSwitch(employeeReportIncludeInProgress, setEmployeeReportIncludeInProgress, 'Include in-progress status')}
-                                {renderSwitch(employeeReportIncludeNotStarted, setEmployeeReportIncludeNotStarted, 'Include not-started status')}
-                                {renderSwitch(employeeReportIncludeCompleted, setEmployeeReportIncludeCompleted, 'Include completed status')}
+                                {renderSwitch(employeeReportIncludeOverdue, setEmployeeReportIncludeOverdue, 'รวมงานที่เกินกำหนด')}
+                                {renderSwitch(employeeReportIncludeDueSoon, setEmployeeReportIncludeDueSoon, 'รวมงานที่ใกล้ถึงกำหนด')}
+                                {renderSwitch(employeeReportIncludeInProgress, setEmployeeReportIncludeInProgress, 'รวมสถานะกำลังดำเนินการ')}
+                                {renderSwitch(employeeReportIncludeNotStarted, setEmployeeReportIncludeNotStarted, 'รวมสถานะยังไม่เริ่ม')}
+                                {renderSwitch(employeeReportIncludeCompleted, setEmployeeReportIncludeCompleted, 'รวมสถานะเสร็จสิ้น')}
                             </div>
                         </div>
 
@@ -473,20 +473,20 @@ export default function SettingsPage() {
                                 className="h-10 px-4 inline-flex items-center justify-center gap-2 rounded-lg bg-[#0073ea] text-white text-[13px] font-medium hover:bg-[#0060c0] disabled:opacity-60 disabled:cursor-not-allowed"
                             >
                                 <Save className="w-4 h-4" />
-                                Save All Report Settings
+                                บันทึกการตั้งค่าทั้งหมด
                             </button>
                         </div>
                     </div>
 
                     <div className="space-y-4">
                         <div className="bg-white border border-[#d0d4e4] rounded-xl p-4 space-y-3 sticky">
-                            <div className="text-[15px] font-semibold text-[#323338]">Test Employee Report</div>
+                            <div className="text-[15px] font-semibold text-[#323338]">ทดสอบรายงานพนักงาน</div>
                             <select
                                 value={employeeReportTestMemberId}
                                 onChange={(e) => setEmployeeReportTestMemberId(e.target.value)}
                                 className="w-full h-10 px-3 border border-[#d0d4e4] rounded-lg text-[13px] outline-none bg-white"
                             >
-                                <option value="">Select team member</option>
+                                <option value="">เลือกสมาชิกทีม</option>
                                 {membersWithLine.map((member: TeamMember) => (
                                     <option key={member.id} value={member.id}>{member.name}</option>
                                 ))}
@@ -494,24 +494,24 @@ export default function SettingsPage() {
 
                             <div className="grid grid-cols-3 gap-2 text-center">
                                 <div className="rounded-lg border border-[#e6e9ef] p-2">
-                                    <div className="text-[10px] text-[#676879]">OPEN</div>
+                                    <div className="text-[10px] text-[#676879]">เปิด</div>
                                     <div className="text-[18px] font-bold text-[#323338]">{preview.total}</div>
                                 </div>
                                 <div className="rounded-lg border border-[#ffe4e8] bg-[#fff5f7] p-2">
-                                    <div className="text-[10px] text-[#676879]">OVERDUE</div>
+                                    <div className="text-[10px] text-[#676879]">เกินกำหนด</div>
                                     <div className="text-[18px] font-bold text-[#e2445c]">{preview.overdue}</div>
                                 </div>
                                 <div className="rounded-lg border border-[#ffeacc] bg-[#fff8ec] p-2">
-                                    <div className="text-[10px] text-[#676879]">DUE SOON</div>
+                                    <div className="text-[10px] text-[#676879]">ใกล้กำหนด</div>
                                     <div className="text-[18px] font-bold text-[#fdab3d]">{preview.dueSoon}</div>
                                 </div>
                             </div>
 
                             <div className="text-[12px] text-[#676879] space-y-1">
-                                <div>In Progress: <span className="font-semibold text-[#323338]">{preview.inProgress}</span></div>
-                                <div>Not Started: <span className="font-semibold text-[#323338]">{preview.notStarted}</span></div>
-                                <div>Completed: <span className="font-semibold text-[#323338]">{preview.completed}</span></div>
-                                <div>Task Items: <span className="font-semibold text-[#323338]">{preview.tasks.length}</span></div>
+                                <div>กำลังดำเนินการ: <span className="font-semibold text-[#323338]">{preview.inProgress}</span></div>
+                                <div>ยังไม่เริ่ม: <span className="font-semibold text-[#323338]">{preview.notStarted}</span></div>
+                                <div>เสร็จสิ้น: <span className="font-semibold text-[#323338]">{preview.completed}</span></div>
+                                <div>จำนวนงาน: <span className="font-semibold text-[#323338]">{preview.tasks.length}</span></div>
                             </div>
 
                             <button
@@ -521,11 +521,11 @@ export default function SettingsPage() {
                                 className="w-full h-10 px-4 inline-flex items-center justify-center gap-2 rounded-lg bg-[#1f2937] text-white text-[13px] font-medium hover:bg-[#111827] disabled:opacity-60 disabled:cursor-not-allowed"
                             >
                                 <Send className="w-4 h-4" />
-                                Send Test Report
+                                ส่งรายงานทดสอบ
                             </button>
 
                             <div className="text-[11px] text-[#9ca3af]">
-                                Test mode sends only to selected member and does not require cron.
+                                โหมดทดสอบจะส่งไปยังสมาชิกที่เลือกเท่านั้นและไม่ต้องการระบบอัตโนมัติ
                             </div>
                         </div>
 

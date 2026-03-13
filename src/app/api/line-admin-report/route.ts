@@ -171,9 +171,9 @@ function buildFlexMessage(payload: ReportPayload): FlexMessage {
         ? `https://liff.line.me/${liffId}?liff.state=${encodeURIComponent(reportPath)}`
         : `${appUrl}${reportPath}`;
     const meta = {
-        'project-summary': { title: 'Project Summary', badge: 'SUMMARY', color: '#1D4ED8' },
-        'today-team-load': { title: 'Team Load (Today)', badge: 'TEAM LOAD', color: '#0F766E' },
-        'completed-last-2-days': { title: 'Completed 2-Day Digest', badge: '2-DAY DIGEST', color: '#9A3412' },
+        'project-summary': { title: 'แจ้งสรุปภาพรวมโครงการ', badge: 'ภาพรวม', color: '#1D4ED8' },
+        'today-team-load': { title: 'แจ้งสรุปภาระงานรายวัน', badge: 'รายบุคคล', color: '#0F766E' },
+        'completed-last-2-days': { title: 'แจ้งสรุปงานที่เสร็จสิ้น', badge: 'เสร็จล่าสุด', color: '#9A3412' },
     }[reportType];
 
     const row = (label: string, value: string, valueColor = '#0F172A'): FlexBoxNode => ({
@@ -193,18 +193,18 @@ function buildFlexMessage(payload: ReportPayload): FlexMessage {
             backgroundColor: '#EEF3F8',
             cornerRadius: '10px',
             contents: [
-                { type: 'text', text: 'Business Report', size: 'sm', color: '#475467', weight: 'bold' },
+                { type: 'text', text: 'รายงาน', size: 'sm', color: '#475467', weight: 'bold' },
                 { type: 'text', text: meta.title, size: 'md', color: '#0F172A', weight: 'bold', margin: 'sm' },
                 {
                     type: 'box',
                     layout: 'horizontal',
                     margin: 'sm',
                     contents: [
-                        { type: 'text', text: `Project: ${payload.projectName}`, size: 'sm', color: '#334155', wrap: true },
+                        { type: 'text', text: `โครงการ: ${payload.projectName}`, size: 'sm', color: '#334155', wrap: true },
                         { type: 'text', text: meta.badge, size: 'sm', color: meta.color, weight: 'bold', align: 'end' },
                     ],
                 },
-                { type: 'text', text: `Generated: ${generatedAt}`, size: 'xs', color: '#475467', margin: 'sm' },
+                { type: 'text', text: `สร้างเมื่อ: ${generatedAt}`, size: 'xs', color: '#475467', margin: 'sm' },
             ],
         },
         {
@@ -216,15 +216,15 @@ function buildFlexMessage(payload: ReportPayload): FlexMessage {
             cornerRadius: '10px',
             spacing: 'sm',
             contents: [
-                { type: 'text', text: 'Key Metrics', size: 'sm', color: '#334155', weight: 'bold' },
-                row('Total Tasks', String(payload.metrics.totalTasks)),
-                row('Overdue', String(payload.metrics.overdue), '#B91C1C'),
-                row('Due Soon', String(payload.metrics.dueSoon), '#B45309'),
-                row('Unassigned', String(payload.metrics.unassigned)),
-                row('Not Started', String(payload.metrics.notStarted)),
-                row('In Progress', String(payload.metrics.inProgress), '#1D4ED8'),
-                row('Completed', String(payload.metrics.completed), '#0F766E'),
-                row('Delayed', String(payload.metrics.delayed), '#B91C1C'),
+                { type: 'text', text: 'ตัวชี้วัดสำคัญ', size: 'sm', color: '#334155', weight: 'bold' },
+                row('งานทั้งหมด', String(payload.metrics.totalTasks)),
+                row('เกินกำหนด', String(payload.metrics.overdue), '#B91C1C'),
+                row('ใกล้ครบกำหนด', String(payload.metrics.dueSoon), '#B45309'),
+                row('ยังไม่มอบหมาย', String(payload.metrics.unassigned)),
+                row('ยังไม่เริ่ม', String(payload.metrics.notStarted)),
+                row('กำลังดำเนินการ', String(payload.metrics.inProgress), '#1D4ED8'),
+                row('เสร็จสิ้น', String(payload.metrics.completed), '#0F766E'),
+                row('ล่าช้า', String(payload.metrics.delayed), '#B91C1C'),
             ],
         },
     ];
@@ -233,7 +233,7 @@ function buildFlexMessage(payload: ReportPayload): FlexMessage {
         const teamLoadRows = payload.teamLoad || [];
         bodyContents.push({
             type: 'text',
-            text: 'Team Load Details',
+            text: 'รายละเอียดภาระงานทีม',
             size: 'sm',
             weight: 'bold',
             color: '#334155',
@@ -248,7 +248,7 @@ function buildFlexMessage(payload: ReportPayload): FlexMessage {
                 backgroundColor: '#F8FAFC',
                 cornerRadius: '10px',
                 contents: [
-                    { type: 'text', text: 'No open tasks assigned today', size: 'sm', color: '#475467' },
+                    { type: 'text', text: 'ไม่มีงานเปิดที่มอบหมายวันนี้', size: 'sm', color: '#475467' },
                 ],
             });
         } else {
@@ -264,7 +264,7 @@ function buildFlexMessage(payload: ReportPayload): FlexMessage {
                         { type: 'text', text: item.name, size: 'sm', weight: 'bold', color: '#111827', wrap: true },
                         {
                             type: 'text',
-                            text: `Open ${item.totalOpen} | Due Today ${item.dueToday} | Overdue ${item.overdue}`,
+                            text: `เปิด ${item.totalOpen} | ครบกำหนดวันนี้ ${item.dueToday} | เกินกำหนด ${item.overdue}`,
                             size: 'sm',
                             color: '#475467',
                             margin: 'sm',
@@ -283,7 +283,7 @@ function buildFlexMessage(payload: ReportPayload): FlexMessage {
 
         bodyContents.push({
             type: 'text',
-            text: 'Completion Digest',
+            text: 'สรุปงานที่เสร็จสิ้น',
             size: 'sm',
             weight: 'bold',
             color: '#334155',
@@ -298,7 +298,7 @@ function buildFlexMessage(payload: ReportPayload): FlexMessage {
             backgroundColor: '#FFFFFF',
             cornerRadius: '10px',
             contents: [
-                { type: 'text', text: `Today (${digest?.todayDate || '-'}) : ${digest?.todayDone ?? 0}`, size: 'sm', weight: 'bold', color: '#0F172A' },
+                { type: 'text', text: `วันนี้ (${digest?.todayDate || '-'}) : ${digest?.todayDone ?? 0}`, size: 'sm', weight: 'bold', color: '#0F172A' },
                 ...(todayTasks.length > 0
                     ? todayTasks.map((taskName) => ({
                         type: 'text' as const,
@@ -308,7 +308,7 @@ function buildFlexMessage(payload: ReportPayload): FlexMessage {
                         margin: 'sm' as const,
                         wrap: true,
                     }))
-                    : [{ type: 'text' as const, text: '- No completed tasks', size: 'xs' as const, color: '#475467', margin: 'sm' as const }]),
+                    : [{ type: 'text' as const, text: '- ไม่มีงานที่เสร็จสิ้น', size: 'xs' as const, color: '#475467', margin: 'sm' as const }]),
             ],
         });
 
@@ -320,7 +320,7 @@ function buildFlexMessage(payload: ReportPayload): FlexMessage {
             backgroundColor: '#FFFFFF',
             cornerRadius: '10px',
             contents: [
-                { type: 'text', text: `Yesterday (${digest?.yesterdayDate || '-'}) : ${digest?.yesterdayDone ?? 0}`, size: 'sm', weight: 'bold', color: '#0F172A' },
+                { type: 'text', text: `เมื่อวาน (${digest?.yesterdayDate || '-'}) : ${digest?.yesterdayDone ?? 0}`, size: 'sm', weight: 'bold', color: '#0F172A' },
                 ...(yesterdayTasks.length > 0
                     ? yesterdayTasks.map((taskName) => ({
                         type: 'text' as const,
@@ -330,13 +330,13 @@ function buildFlexMessage(payload: ReportPayload): FlexMessage {
                         margin: 'sm' as const,
                         wrap: true,
                     }))
-                    : [{ type: 'text' as const, text: '- No completed tasks', size: 'xs' as const, color: '#475467', margin: 'sm' as const }]),
+                    : [{ type: 'text' as const, text: '- ไม่มีงานที่เสร็จสิ้น', size: 'xs' as const, color: '#475467', margin: 'sm' as const }]),
             ],
         });
     }
 
     const footerContents: Array<FlexTextNode | FlexBoxNode | FlexButtonNode> = [
-        { type: 'text', text: `Generated: ${generatedAt}`, size: 'xs', color: '#6B7280', align: 'center' },
+        { type: 'text', text: `สร้างเมื่อ: ${generatedAt}`, size: 'xs', color: '#6B7280', align: 'center' },
     ];
 
     if (reportType !== 'today-team-load') {
@@ -344,7 +344,7 @@ function buildFlexMessage(payload: ReportPayload): FlexMessage {
             type: 'button',
             action: {
                 type: 'uri',
-                label: 'Open Full Report',
+                label: 'เปิดรายงานฉบับเต็ม',
                 uri: reportUrl,
             },
             style: 'primary',

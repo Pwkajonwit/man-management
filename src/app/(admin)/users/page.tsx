@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import LinearLoadingScreen from '@/components/LinearLoadingScreen';
 import UserManagementView from '@/components/UserManagementView';
 import { useAppContext } from '@/contexts/AppContext';
+import { useConfirmModal } from '@/contexts/ConfirmModalContext';
 import {
     deleteTeamMember as fbDeleteTeamMember,
     deleteSystemUserAccount as fbDeleteSystemUserAccount,
@@ -17,6 +18,7 @@ import { SystemUserAccount, TeamMember } from '@/types/construction';
 
 export default function UsersPage() {
     const { teamMembers, setTeamMembers, tasks, setTasks, loading, dataSource } = useAppContext();
+    const modal = useConfirmModal();
     const [systemUsers, setSystemUsers] = useState<SystemUserAccount[]>([]);
 
     useEffect(() => {
@@ -39,7 +41,7 @@ export default function UsersPage() {
         } catch (error) {
             console.error('Failed to add team member:', error);
             setTeamMembers(prev => prev.filter(m => m.id !== member.id));
-            alert('Cannot add team member. Please try again.');
+            void modal.error('ไม่สามารถเพิ่มสมาชิกทีมได้ โปรดลองอีกครั้ง');
         }
     }, [dataSource, setTeamMembers]);
 
@@ -76,7 +78,7 @@ export default function UsersPage() {
             if (nameChanged) {
                 setTasks(prev => prev.map(t => (t.responsible === newName ? { ...t, responsible: oldName } : t)));
             }
-            alert('Cannot update team member. Please try again.');
+            void modal.error('ไม่สามารถอัปเดตสมาชิกทีมได้ โปรดลองอีกครั้ง');
         }
     }, [dataSource, setTasks, setTeamMembers, tasks, teamMembers]);
 
@@ -136,7 +138,7 @@ export default function UsersPage() {
                     return previous ? { ...task, ...previous } : task;
                 }));
             }
-            alert('Cannot delete team member. Please try again.');
+            void modal.error('ไม่สามารถลบสมาชิกทีมได้ โปรดลองอีกครั้ง');
         }
     }, [dataSource, setTasks, setTeamMembers, tasks, teamMembers]);
 
@@ -150,7 +152,7 @@ export default function UsersPage() {
         lineUserId?: string;
     }) => {
         if (dataSource !== 'firebase') {
-            alert('System user management is available in Firebase mode only.');
+            void modal.alert('การจัดการผู้ใช้ระบบมีให้ใช้งานในโหมด Firebase เท่านั้น', { variant: 'warning' });
             return;
         }
 
@@ -168,13 +170,13 @@ export default function UsersPage() {
             });
         } catch (error) {
             console.error('Failed to add system user:', error);
-            alert('Cannot add system user. Please try again.');
+            void modal.error('ไม่สามารถเพิ่มผู้ใช้ระบบได้ โปรดลองอีกครั้ง');
         }
     }, [dataSource]);
 
     const handleUpdateSystemUser = useCallback(async (userId: string, patch: Partial<SystemUserAccount>) => {
         if (dataSource !== 'firebase') {
-            alert('System user management is available in Firebase mode only.');
+            void modal.alert('การจัดการผู้ใช้ระบบมีให้ใช้งานในโหมด Firebase เท่านั้น', { variant: 'warning' });
             return;
         }
         try {
@@ -183,24 +185,24 @@ export default function UsersPage() {
             await upsertSystemUserAccount(userId, safePatch);
         } catch (error) {
             console.error('Failed to update system user:', error);
-            alert('Cannot update system user. Please try again.');
+            void modal.error('ไม่สามารถอัปเดตผู้ใช้ระบบได้ โปรดลองอีกครั้ง');
         }
     }, [dataSource]);
 
     const handleDeleteSystemUser = useCallback(async (userId: string) => {
         if (dataSource !== 'firebase') {
-            alert('System user management is available in Firebase mode only.');
+            void modal.alert('การจัดการผู้ใช้ระบบมีให้ใช้งานในโหมด Firebase เท่านั้น', { variant: 'warning' });
             return;
         }
         try {
             await fbDeleteSystemUserAccount(userId);
         } catch (error) {
             console.error('Failed to delete system user:', error);
-            alert('Cannot delete system user. Please try again.');
+            void modal.error('ไม่สามารถลบผู้ใช้ระบบได้ โปรดลองอีกครั้ง');
         }
     }, [dataSource]);
 
-    if (loading) return <LinearLoadingScreen message="Loading users..." />;
+    if (loading) return <LinearLoadingScreen message="กำลังโหลดผู้ใช้งาน..." />;
 
     return (
         <UserManagementView

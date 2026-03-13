@@ -12,7 +12,7 @@ export default function AdminReportViewerPage() {
     const type = searchParams.get('type');
     const projectId = searchParams.get('projectId');
 
-    if (loading) return <LinearLoadingScreen message="Loading admin report..." />;
+    if (loading) return <LinearLoadingScreen message="กำลังโหลดรายงานผู้ดูแลระบบ..." />;
 
     return (
         <AdminLineReportView

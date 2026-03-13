@@ -8,7 +8,7 @@ import { useAppContext } from '@/contexts/AppContext';
 export default function MyWorkPage() {
     const { tasks, projects, teamMembers, loading } = useAppContext();
 
-    if (loading) return <LinearLoadingScreen message="Loading work tracker..." />;
+    if (loading) return <LinearLoadingScreen message="กำลังโหลดระบบติดตามงาน..." />;
 
     return <MyWorkTrackerView tasks={tasks} projects={projects} teamMembers={teamMembers} />;
 }

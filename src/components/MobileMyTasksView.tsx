@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import React, { useMemo, useState } from 'react';
 import Link from 'next/link';
@@ -6,7 +6,7 @@ import { addDays, format, isPast } from 'date-fns';
 import { AlertTriangle, CalendarDays, CheckCircle2, Clock3, ListTodo, UserRound } from 'lucide-react';
 import { Project, Task, TeamMember } from '@/types/construction';
 import { getStatusColor, getStatusLabel } from '@/utils/statusUtils';
-import { getTaskOwnerNames as resolveTaskOwnerNames, isTaskAssignedToCurrentUser } from '@/utils/taskOwnerUtils';
+import { findCurrentTeamMember, getTaskOwnerNames as resolveTaskOwnerNames, isTaskAssignedToCurrentUser } from '@/utils/taskOwnerUtils';
 import { useAuth } from '@/contexts/AuthContext';
 
 type FilterTab = 'all' | 'soon' | 'overdue' | 'done';
@@ -40,15 +40,15 @@ function isDueSoon(task: Task): boolean {
 function getPriorityLabel(priority?: Task['priority']): string {
     switch (priority) {
         case 'urgent':
-            return 'Urgent';
+            return 'ด่วนมาก';
         case 'high':
-            return 'High';
+            return 'สูง';
         case 'medium':
-            return 'Medium';
+            return 'ปานกลาง';
         case 'low':
-            return 'Low';
+            return 'ต่ำ';
         default:
-            return 'Normal';
+            return 'ปกติ';
     }
 }
 
@@ -91,7 +91,13 @@ export default function MobileMyTasksView({
     onStatusChange,
 }: MobileMyTasksViewProps) {
     const [activeTab, setActiveTab] = useState<FilterTab>('all');
+    const [displayLimit, setDisplayLimit] = useState(20);
     const [showProfileCard, setShowProfileCard] = useState(false);
+
+    const handleTabChange = (tab: FilterTab) => {
+        setActiveTab(tab);
+        setDisplayLimit(20);
+    };
     const [pendingStatusChange, setPendingStatusChange] = useState<{
         taskId: string;
         taskName: string;
@@ -101,6 +107,15 @@ export default function MobileMyTasksView({
     const { user } = useAuth();
     const profileName = user?.displayName || currentUserName || 'User';
     const profileInitial = profileName.substring(0, 2).toUpperCase();
+    const registeredMemberName = useMemo(() => {
+        const matchedMember = findCurrentTeamMember(
+            teamMembers,
+            currentUserName || profileName,
+            user?.lineUserId,
+            user?.uid
+        );
+        return matchedMember?.name || currentUserName || profileName || 'User';
+    }, [teamMembers, currentUserName, profileName, user?.lineUserId, user?.uid]);
 
     const completedProjectIds = useMemo(() => (
         new Set(
@@ -149,6 +164,8 @@ export default function MobileMyTasksView({
         .slice()
         .sort((a, b) => new Date(a.planEndDate).getTime() - new Date(b.planEndDate).getTime());
 
+    const visibleTasks = shownTasks.slice(0, displayLimit);
+
     const stats = {
         total: grouped.all.length,
         overdue: grouped.overdue.length,
@@ -182,22 +199,22 @@ export default function MobileMyTasksView({
     };
 
     return (
-        <div className="min-h-screen bg-[radial-gradient(circle_at_top,#f6f9fc_0%,#eef3f8_42%,#e8eef5_100%)] [font-family:'IBM_Plex_Sans',sans-serif]">
-            <header className="sticky top-0 z-20 bg-gradient-to-r from-[#11283f] via-[#1a3858] to-[#20486e] px-4 py-3 border-b border-[#2c4f72] shadow-[0_6px_18px_rgba(13,33,55,0.28)]">
+        <div className="min-h-screen bg-[radial-gradient(circle_at_top,#f6f9fc_0%,#eef3f8_42%,#e8eef5_100%)]">
+            <header className="sticky top-0 z-20 bg-gradient-to-r from-[#00675e] via-[#1b8930] to-[#066a5b] p-4 shadow-[0_12px_28px_rgba(12,34,58,0.2)]">
                 <div className="flex items-start justify-between gap-3">
                     <div>
-                        <h1 className="text-[18px] font-bold text-white tracking-[0.02em]">My Tasks</h1>
+                        <h1 className="text-[16px] font-bold text-white tracking-[0.02em]">POWERTEC ENGINEERING CO., LTD.</h1>
                         <p className="text-[12px] text-[#d8e7f6] flex items-center gap-1 mt-0.5">
-                            <UserRound className="w-3.5 h-3.5" /> {currentUserName}
+                            <UserRound className="w-3.5 h-3.5" /> {registeredMemberName}
                         </p>
                     </div>
                     <div className="relative">
                         <button
                             type="button"
                             onClick={() => setShowProfileCard((prev) => !prev)}
-                            className="w-9 h-9 rounded-full border border-[#8cabca]/70 bg-[#2a4e71] hover:bg-[#325b82] transition-colors overflow-hidden flex items-center justify-center"
-                            aria-label="Profile"
-                            title="Profile"
+                            className="w-10 h-10 rounded-full border border-white bg-gradient-to-r from-[#6ab04c] via-[#6ab04c] to-[#badc58] hover:bg-[#325b82] transition-colors overflow-hidden flex items-center justify-center"
+                            aria-label="โปรไฟล์"
+                            title="โปรไฟล์"
                         >
                             {user?.pictureUrl ? (
                                 <img
@@ -212,8 +229,8 @@ export default function MobileMyTasksView({
                         </button>
                         {showProfileCard && (
                             <div className="absolute right-0 mt-2 min-w-[170px] rounded-lg border border-[#c9d4e2] bg-white shadow-[0_12px_28px_rgba(12,34,58,0.2)] px-3 py-2">
-                                <p className="text-[11px] text-[#6f7f92] uppercase tracking-wide">Profile</p>
-                                <p className="text-[13px] font-semibold text-[#1e2f44] truncate mt-0.5">{profileName}</p>
+                                <p className="text-[11px] text-[#6f7f92] uppercase tracking-wide">โปรไฟล์</p>
+                                <p className="text-[13px] font-semibold text-[#1e2f44] truncate mt-0.5">{registeredMemberName}</p>
                             </div>
                         )}
                     </div>
@@ -224,50 +241,46 @@ export default function MobileMyTasksView({
                 <div className="grid grid-cols-4 gap-2">
                     <button
                         type="button"
-                        onClick={() => setActiveTab('all')}
-                        className={`text-left bg-white rounded-xl border p-2.5 shadow-[0_2px_10px_rgba(30,56,86,0.06)] transition-all ${
-                            activeTab === 'all'
+                        onClick={() => handleTabChange('all')}
+                        className={`text-left bg-white rounded-xl border p-2.5 shadow-[0_2px_10px_rgba(30,56,86,0.06)] transition-all ${activeTab === 'all'
                                 ? 'border-[#2f5f90] ring-2 ring-[#2f5f90]/20'
                                 : 'border-[#cfd9e6] hover:border-[#9fb4cc]'
-                        }`}
+                            }`}
                     >
-                        <div className="text-[10px] uppercase tracking-wider text-[#6e7f92] font-semibold">Open</div>
+                        <div className="text-[10px] uppercase tracking-wider text-[#6e7f92] font-semibold">เปิด</div>
                         <div className="text-[18px] font-black text-[#20374f] mt-1">{stats.total}</div>
                     </button>
                     <button
                         type="button"
-                        onClick={() => setActiveTab('soon')}
-                        className={`text-left bg-white rounded-xl border p-2.5 shadow-[0_2px_10px_rgba(30,56,86,0.06)] transition-all ${
-                            activeTab === 'soon'
+                        onClick={() => handleTabChange('soon')}
+                        className={`text-left bg-white rounded-xl border p-2.5 shadow-[0_2px_10px_rgba(30,56,86,0.06)] transition-all ${activeTab === 'soon'
                                 ? 'border-[#2f5f90] ring-2 ring-[#2f5f90]/20'
                                 : 'border-[#cfd9e6] hover:border-[#9fb4cc]'
-                        }`}
+                            }`}
                     >
-                        <div className="text-[10px] uppercase tracking-wider text-[#6e7f92] font-semibold">Soon</div>
+                        <div className="text-[10px] uppercase tracking-wider text-[#6e7f92] font-semibold">ใกล้กำหนด</div>
                         <div className="text-[18px] font-black text-[#2b5f95] mt-1">{stats.soon}</div>
                     </button>
                     <button
                         type="button"
-                        onClick={() => setActiveTab('overdue')}
-                        className={`text-left bg-white rounded-xl border p-2.5 shadow-[0_2px_10px_rgba(30,56,86,0.06)] transition-all ${
-                            activeTab === 'overdue'
+                        onClick={() => handleTabChange('overdue')}
+                        className={`text-left bg-white rounded-xl border p-2.5 shadow-[0_2px_10px_rgba(30,56,86,0.06)] transition-all ${activeTab === 'overdue'
                                 ? 'border-[#9b2f42] ring-2 ring-[#9b2f42]/20'
                                 : 'border-[#cfd9e6] hover:border-[#caa2ab]'
-                        }`}
+                            }`}
                     >
-                        <div className="text-[10px] uppercase tracking-wider text-[#6e7f92] font-semibold">Overdue</div>
+                        <div className="text-[10px] uppercase tracking-wider text-[#6e7f92] font-semibold">เกินกำหนด</div>
                         <div className="text-[18px] font-black text-[#9b2f42] mt-1">{stats.overdue}</div>
                     </button>
                     <button
                         type="button"
-                        onClick={() => setActiveTab('done')}
-                        className={`text-left bg-white rounded-xl border p-2.5 shadow-[0_2px_10px_rgba(30,56,86,0.06)] transition-all ${
-                            activeTab === 'done'
+                        onClick={() => handleTabChange('done')}
+                        className={`text-left bg-white rounded-xl border p-2.5 shadow-[0_2px_10px_rgba(30,56,86,0.06)] transition-all ${activeTab === 'done'
                                 ? 'border-[#1f4f7a] ring-2 ring-[#1f4f7a]/20'
                                 : 'border-[#cfd9e6] hover:border-[#9fb4cc]'
-                        }`}
+                            }`}
                     >
-                        <div className="text-[10px] uppercase tracking-wider text-[#6e7f92] font-semibold">Done</div>
+                        <div className="text-[10px] uppercase tracking-wider text-[#6e7f92] font-semibold">เสร็จสิ้น</div>
                         <div className="text-[18px] font-black text-[#1f4f7a] mt-1">{stats.done}</div>
                     </button>
                 </div>
@@ -276,11 +289,11 @@ export default function MobileMyTasksView({
                     {shownTasks.length === 0 && (
                         <div className="bg-white rounded-xl border border-[#cfd9e6] p-8 text-center shadow-[0_2px_12px_rgba(30,56,86,0.06)]">
                             <ListTodo className="w-7 h-7 mx-auto text-[#8ea0b5]" />
-                            <p className="text-[13px] text-[#5f7084] mt-2">No tasks in this section</p>
+                            <p className="text-[13px] text-[#5f7084] mt-2">ไม่มีงานในส่วนนี้</p>
                         </div>
                     )}
 
-                    {shownTasks.map((task) => {
+                    {visibleTasks.map((task) => {
                         const project = projects.find((p) => p.id === task.projectId);
                         const overdue = isOverdue(task);
                         const dueSoon = isDueSoon(task);
@@ -295,7 +308,7 @@ export default function MobileMyTasksView({
                                 <div className="flex items-start justify-between gap-3">
                                     <div className="min-w-0 flex-1">
                                         <p className="text-[11px] text-[#5f7084] break-words [overflow-wrap:anywhere]">
-                                            {project?.name || 'No Project'} • {task.category}
+                                            {project?.name || 'ไม่มีโครงการ'} • {task.category}
                                         </p>
                                         <p className="text-[14px] font-semibold text-[#1f3147] leading-snug mt-1 break-words [overflow-wrap:anywhere]">
                                             {task.name}
@@ -308,10 +321,10 @@ export default function MobileMyTasksView({
 
                                 <div className="mt-2 flex items-center gap-2">
                                     <span className={`text-[10px] px-2 py-1 rounded-full font-semibold border ${getPriorityBadgeClass(task.priority)}`}>
-                                        Priority: {getPriorityLabel(task.priority)}
+                                        ความสำคัญ: {getPriorityLabel(task.priority)}
                                     </span>
                                     <span className="text-[10px] px-2 py-1 rounded-full font-semibold border border-[#ced9e7] bg-[#f3f7fb] text-[#2a4a68]">
-                                        Progress: {progress}%
+                                        ความคืบหน้า: {progress}%
                                     </span>
                                 </div>
 
@@ -321,15 +334,15 @@ export default function MobileMyTasksView({
                                     </div>
                                     {overdue ? (
                                         <div className="text-[#9b2f42] font-semibold flex items-center gap-1">
-                                            <AlertTriangle className="w-3.5 h-3.5" /> Overdue
+                                            <AlertTriangle className="w-3.5 h-3.5" /> เกินกำหนด
                                         </div>
                                     ) : dueSoon ? (
                                         <div className="text-[#2f5f90] font-semibold flex items-center gap-1">
-                                            <Clock3 className="w-3.5 h-3.5" /> Due soon
+                                            <Clock3 className="w-3.5 h-3.5" /> ใกล้ถึงกำหนด
                                         </div>
                                     ) : (
                                         <div className="text-[#1f4f7a] font-semibold flex items-center gap-1">
-                                            <CheckCircle2 className="w-3.5 h-3.5" /> On track
+                                            <CheckCircle2 className="w-3.5 h-3.5" /> ตามกำหนด
                                         </div>
                                     )}
                                 </div>
@@ -343,20 +356,20 @@ export default function MobileMyTasksView({
 
                                 <div className="mt-3 grid grid-cols-2 gap-2 text-[11px]">
                                     <div className="rounded-lg border border-[#d7e0ea] bg-[#f8fbff] px-2 py-1.5">
-                                        <p className="text-[#6c7f93] uppercase tracking-wide text-[10px]">Owner</p>
+                                        <p className="text-[#6c7f93] uppercase tracking-wide text-[10px]">ผู้รับผิดชอบ</p>
                                         <p className="text-[#1f3147] font-semibold break-words [overflow-wrap:anywhere]">
-                                            {ownerNames.length > 0 ? ownerNames.join(', ') : 'Unassigned'}
+                                            {ownerNames.length > 0 ? ownerNames.join(', ') : 'ยังไม่ระบุ'}
                                         </p>
                                     </div>
                                     <div className="rounded-lg border border-[#d7e0ea] bg-[#f8fbff] px-2 py-1.5">
-                                        <p className="text-[#6c7f93] uppercase tracking-wide text-[10px]">Duration</p>
-                                        <p className="text-[#1f3147] font-semibold truncate">{task.planDuration || 0} days</p>
+                                        <p className="text-[#6c7f93] uppercase tracking-wide text-[10px]">ระยะเวลา</p>
+                                        <p className="text-[#1f3147] font-semibold truncate">{task.planDuration || 0} วัน</p>
                                     </div>
                                 </div>
 
                                 {task.description && (
                                     <div className="mt-2 rounded-lg border border-[#d7e0ea] bg-[#f8fbff] px-2.5 py-2">
-                                        <p className="text-[10px] uppercase tracking-wide text-[#6c7f93]">Description</p>
+                                        <p className="text-[10px] uppercase tracking-wide text-[#6c7f93]">รายละเอียด</p>
                                         <p className="text-[11px] text-[#44586c] mt-1 line-clamp-2">{task.description}</p>
                                     </div>
                                 )}
@@ -364,34 +377,44 @@ export default function MobileMyTasksView({
                                 <div className="mt-3 flex items-center gap-2">
                                     <button
                                         onClick={() => requestStatusChange(task, 'in-progress')}
-                                        className={`text-[11px] px-2.5 py-1.5 rounded-md font-semibold border transition-all ${
-                                            isWorking
+                                        className={`text-[11px] px-2.5 py-1.5 rounded-md font-semibold border transition-all ${isWorking
                                                 ? 'bg-gradient-to-r from-[#ffb347] to-[#ff8f1f] text-white border-[#e37b16] shadow-[0_3px_10px_rgba(255,143,31,0.35)]'
                                                 : 'bg-[#fff4e8] text-[#9b5b16] border-[#ffd1a2] hover:bg-[#ffe9d3]'
-                                        }`}
+                                            }`}
                                     >
-                                        Working
+                                        กำลังดำเนินการ
                                     </button>
                                     <button
                                         onClick={() => requestStatusChange(task, 'completed')}
-                                        className={`text-[11px] px-2.5 py-1.5 rounded-md font-semibold border transition-all ${
-                                            isDone
+                                        className={`text-[11px] px-2.5 py-1.5 rounded-md font-semibold border transition-all ${isDone
                                                 ? 'bg-gradient-to-r from-[#2acb7a] to-[#0cae5f] text-white border-[#0e9a58] shadow-[0_3px_10px_rgba(12,174,95,0.32)]'
                                                 : 'bg-[#e9f9f0] text-[#0f8a52] border-[#bde8d0] hover:bg-[#dff4e9]'
-                                        }`}
+                                            }`}
                                     >
-                                        Done
+                                        เสร็จสิ้น
                                     </button>
                                     <Link
                                         href={`/me/tasks/${task.id}`}
                                         className="ml-auto text-[11px] px-2.5 py-1.5 rounded-md bg-[#f1f5fa] text-[#24425f] font-semibold border border-[#cfd8e5]"
                                     >
-                                        Detail
+                                        รายละเอียด
                                     </Link>
                                 </div>
                             </div>
                         );
                     })}
+
+                    {shownTasks.length > displayLimit && (
+                        <div className="pt-2">
+                            <button
+                                type="button"
+                                onClick={() => setDisplayLimit((prev) => prev + 20)}
+                                className="w-full py-3 rounded-xl border border-[#cfd9e6] bg-white text-[#2b5f95] text-[13px] font-semibold hover:bg-[#f6f9fc] transition-colors shadow-[0_2px_8px_rgba(30,56,86,0.04)]"
+                            >
+                                โหลดเพิ่มเติม ({shownTasks.length - displayLimit} รายการ)
+                            </button>
+                        </div>
+                    )}
                 </div>
             </main>
 
@@ -399,14 +422,14 @@ export default function MobileMyTasksView({
                 <div className="fixed inset-0 z-40 bg-black/45 backdrop-blur-[1px] flex items-center justify-center px-4">
                     <div className="w-full max-w-sm rounded-xl border border-[#d0dbe8] bg-white shadow-[0_18px_42px_rgba(15,33,53,0.25)]">
                         <div className="px-4 py-3 border-b border-[#e4ebf4]">
-                            <h3 className="text-[15px] font-bold text-[#1f3147]">Confirm Status Change</h3>
+                            <h3 className="text-[15px] font-bold text-[#1f3147]">ยืนยันการเปลี่ยนสถานะ</h3>
                         </div>
                         <div className="px-4 py-3 space-y-2">
                             <p className="text-[13px] text-[#42586f] leading-relaxed">
-                                Change task status for <span className="font-semibold text-[#1f3147]">{pendingStatusChange.taskName}</span>?
+                                เปลี่ยนสถานะงานสำหรับ <span className="font-semibold text-[#1f3147]">{pendingStatusChange.taskName}</span> ใช่หรือไม่?
                             </p>
                             <div className="text-[12px] text-[#5f7084]">
-                                New status:{' '}
+                                สถานะใหม่:{' '}
                                 <span className="font-semibold text-[#1f3147]">
                                     {getStatusLabel(pendingStatusChange.targetStatus)}
                                 </span>
@@ -419,19 +442,18 @@ export default function MobileMyTasksView({
                                 disabled={isChangingStatus}
                                 className="px-3 py-1.5 rounded-md text-[12px] font-semibold bg-[#f1f5fa] border border-[#d3ddeb] text-[#24425f] hover:bg-[#e6edf6] disabled:opacity-60"
                             >
-                                Cancel
+                                ยกเลิก
                             </button>
                             <button
                                 type="button"
                                 onClick={() => void confirmStatusChange()}
                                 disabled={isChangingStatus}
-                                className={`px-3 py-1.5 rounded-md text-[12px] font-semibold text-white disabled:opacity-60 ${
-                                    pendingStatusChange.targetStatus === 'completed'
+                                className={`px-3 py-1.5 rounded-md text-[12px] font-semibold text-white disabled:opacity-60 ${pendingStatusChange.targetStatus === 'completed'
                                         ? 'bg-[#17a864] hover:bg-[#119557]'
                                         : 'bg-[#f08f24] hover:bg-[#dd7f16]'
-                                }`}
+                                    }`}
                             >
-                                {isChangingStatus ? 'Updating...' : 'Confirm'}
+                                {isChangingStatus ? 'กำลังอัปเดต...' : 'ยืนยัน'}
                             </button>
                         </div>
                     </div>

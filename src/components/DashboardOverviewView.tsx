@@ -1,4 +1,4 @@
-﻿import React, { useMemo } from 'react';
+import React, { useMemo } from 'react';
 import { AlertTriangle, ChevronDown, Clock3, UserX2, UsersRound } from 'lucide-react';
 import Link from 'next/link';
 import { addDays, isPast } from 'date-fns';
@@ -120,7 +120,7 @@ export default function DashboardOverviewView({ tasks, teamMembers }: DashboardO
     };
 
     const renderWorkloadGroup = (
-        label: 'Team' | 'Crew',
+        label: string,
         groupKey: 'team' | 'crew',
         entries: MemberLoadEntry[],
         headerClassName: string
@@ -134,17 +134,17 @@ export default function DashboardOverviewView({ tasks, teamMembers }: DashboardO
             <div>
                 <div className={`px-5 py-2 text-[11px] font-bold tracking-wide uppercase flex items-center justify-between ${headerClassName}`}>
                     <span>{label}</span>
-                    <span className="text-[10px] font-semibold normal-case opacity-90">{entries.length} people</span>
+                    <span className="text-[10px] font-semibold normal-case opacity-90">{entries.length} คน</span>
                 </div>
 
                 <div className="overflow-x-auto">
                     <table className="w-full min-w-[560px]">
                         <thead>
                             <tr className="text-[10px] uppercase tracking-wider text-[#6f7683] bg-[#fafbfc]">
-                                <th className="px-5 py-2 text-left font-semibold">Member</th>
-                                <th className="px-3 py-2 text-left font-semibold">Load</th>
-                                <th className="px-3 py-2 text-left font-semibold">Util</th>
-                                <th className="px-3 py-2 text-left font-semibold">Tasks</th>
+                                <th className="px-5 py-2 text-left font-semibold">สมาชิก</th>
+                                <th className="px-3 py-2 text-left font-semibold">ภาระงาน</th>
+                                <th className="px-3 py-2 text-left font-semibold">การใช้งาน</th>
+                                <th className="px-3 py-2 text-left font-semibold">งาน</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-[#eef1f5]">
@@ -175,11 +175,11 @@ export default function DashboardOverviewView({ tasks, teamMembers }: DashboardO
                                             </span>
                                         </td>
                                         <td className="px-3 py-2.5 align-top">
-                                            <div className="text-[12px] font-semibold text-[#323338]">{entry.openTaskCount} open</div>
+                                            <div className="text-[12px] font-semibold text-[#323338]">{entry.openTaskCount} ที่กำลังเปิด</div>
                                             {entry.overdue > 0 ? (
-                                                <div className="text-[11px] text-[#e2445c]">{entry.overdue} overdue</div>
+                                                <div className="text-[11px] text-[#e2445c]">{entry.overdue} ที่เกินกำหนด</div>
                                             ) : (
-                                                <div className="text-[11px] text-[#8a8f99]">on track</div>
+                                                <div className="text-[11px] text-[#8a8f99]">ตามกำหนด</div>
                                             )}
                                         </td>
                                     </tr>
@@ -197,7 +197,7 @@ export default function DashboardOverviewView({ tasks, teamMembers }: DashboardO
                             className="inline-flex items-center gap-1 text-[12px] font-semibold text-[#0060c0] hover:underline"
                         >
                             <ChevronDown className={`w-3.5 h-3.5 transition-transform ${expanded ? 'rotate-180' : ''}`} />
-                            {expanded ? 'Show less' : `Show ${hiddenCount} more`}
+                            {expanded ? 'แสดงน้อยลง' : `แสดงเพิ่มเติมอีก ${hiddenCount}`}
                         </button>
                     </div>
                 )}
@@ -208,7 +208,7 @@ export default function DashboardOverviewView({ tasks, teamMembers }: DashboardO
     return (
         <div className="flex-1 flex flex-col min-w-0 bg-[#f5f6f8]">
             <header className="min-h-[64px] bg-white flex items-center px-4 sm:px-6 lg:px-8 py-3 border-b border-[#d0d4e4] gap-4 shrink-0 transition-all">
-                <h1 className="text-[22px] sm:text-[26px] font-bold tracking-tight text-[#323338] truncate">Team and Crew Overview Dashboard</h1>
+                <h1 className="text-[22px] sm:text-[26px] font-bold tracking-tight text-[#323338] truncate">ภาพรวมแดชบอร์ดทีมและผู้รับเหมา</h1>
             </header>
 
             <div className="flex-1 overflow-auto p-4 sm:p-6 lg:p-8">
@@ -246,11 +246,11 @@ export default function DashboardOverviewView({ tasks, teamMembers }: DashboardO
                             </div>
 
                             <div className="divide-y divide-[#e6e9ef]">
-                                {renderWorkloadGroup('Team', 'team', metrics.teamLoad, 'bg-[#f8f9fc] text-[#676879]')}
-                                {renderWorkloadGroup('Crew', 'crew', metrics.crewLoad, 'bg-[#fff8ee] text-[#b05b00]')}
+                                {renderWorkloadGroup('ทีมงาน', 'team', metrics.teamLoad, 'bg-[#f8f9fc] text-[#676879]')}
+                                {renderWorkloadGroup('ทีมช่าง', 'crew', metrics.crewLoad, 'bg-[#fff8ee] text-[#b05b00]')}
 
                                 {metrics.teamLoad.length === 0 && metrics.crewLoad.length === 0 && (
-                                    <div className="px-5 py-6 text-[13px] text-[#676879]">No team members or crew found.</div>
+                                    <div className="px-5 py-6 text-[13px] text-[#676879]">ไม่พบทีมงานหรือช่าง</div>
                                 )}
                             </div>
                         </div>

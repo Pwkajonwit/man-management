@@ -49,13 +49,13 @@ const isTaskActiveOnDate = (task: Task, dateKey: string) => {
 const getPriorityMeta = (priority?: Task['priority']) => {
   switch (priority) {
     case 'urgent':
-      return { label: 'Urgent', className: 'bg-[#fff1f2] border-[#fecdd3] text-[#9f1239]' };
+      return { label: 'ด่วนมาก', className: 'bg-[#fff1f2] border-[#fecdd3] text-[#9f1239]' };
     case 'high':
-      return { label: 'High', className: 'bg-[#fff7ed] border-[#fed7aa] text-[#9a3412]' };
+      return { label: 'สูง', className: 'bg-[#fff7ed] border-[#fed7aa] text-[#9a3412]' };
     case 'medium':
-      return { label: 'Medium', className: 'bg-[#eef4ff] border-[#c9d8f5] text-[#1b4f92]' };
+      return { label: 'ปานกลาง', className: 'bg-[#eef4ff] border-[#c9d8f5] text-[#1b4f92]' };
     case 'low':
-      return { label: 'Low', className: 'bg-[#f8fafc] border-[#d6dde7] text-[#475569]' };
+      return { label: 'ต่ำ', className: 'bg-[#f8fafc] border-[#d6dde7] text-[#475569]' };
     default:
       return { label: '-', className: 'bg-[#f8fafc] border-[#d6dde7] text-[#64748b]' };
   }
@@ -83,31 +83,31 @@ function ReportTable({ title, rows }: { title: string; rows: ReportRow[] }) {
         <h2 className="text-[14px] font-semibold text-[#1f3147]">{title}</h2>
       </div>
       {rows.length === 0 ? (
-        <div className="px-4 py-4 text-[13px] text-[#5f7084]">No tasks in this period</div>
+        <div className="px-4 py-4 text-[13px] text-[#5f7084]">ไม่มีงานในช่วงเวลานี้</div>
       ) : (
         <div className="overflow-x-auto">
           <table className="w-full text-[13px] table-fixed">
             <thead className="bg-[#14365a]">
               <tr>
-                <th className="px-3 py-2 text-left font-semibold text-white/95 w-[56px]">No.</th>
-                <th className="px-3 py-2 text-left font-semibold text-white/95 w-[140px]">Category</th>
-                <th className="px-3 py-2 text-left font-semibold text-white/95">Task</th>
+                <th className="px-3 py-2 text-left font-semibold text-white/95 w-[56px]">ลำดับ</th>
+                <th className="px-3 py-2 text-left font-semibold text-white/95 w-[140px]">หมวดหมู่</th>
+                <th className="px-3 py-2 text-left font-semibold text-white/95">งาน</th>
                 <th className="px-3 py-2 text-left font-semibold text-white/95 w-[180px]">
                   <div className="flex flex-col leading-[1.2]">
-                    <span>Owner</span>
-                    <span className="mt-1 text-white/80">Crew</span>
+                    <span>ผู้รับผิดชอบ</span>
+                    <span className="mt-1 text-white/80">ทีมช่าง</span>
                   </div>
                 </th>
                 <th className="px-3 py-2 text-left font-semibold text-white/95 w-[150px]">
                   <div className="flex flex-col leading-[1.2]">
-                    <span>Start Date</span>
-                    <span className="mt-1 text-white/80">End Date</span>
+                    <span>วันที่เริ่ม</span>
+                    <span className="mt-1 text-white/80">วันที่สิ้นสุด</span>
                   </div>
                 </th>
                 <th className="px-3 py-2 text-left font-semibold text-white/95 w-[140px]">
                   <div className="flex flex-col leading-[1.2]">
-                    <span>Status</span>
-                    <span className="mt-1 text-white/80">Priority</span>
+                    <span>สถานะ</span>
+                    <span className="mt-1 text-white/80">ความสำคัญ</span>
                   </div>
                 </th>
               </tr>
@@ -186,12 +186,12 @@ export default function CompletedTwoDayReportPage() {
         const priorityMeta = getPriorityMeta(task.priority);
         return {
           id: task.id,
-          category: task.category || 'No Category',
+          category: task.category || 'ไม่มีหมวดหมู่',
           name: task.name,
           status: task.status,
           priorityLabel: priorityMeta.label,
           priorityClass: priorityMeta.className,
-          ownerLabel: ownerNames.length > 0 ? ownerNames.join(', ') : 'Unassigned',
+          ownerLabel: ownerNames.length > 0 ? ownerNames.join(', ') : 'ยังไม่ระบุ',
           crewLabel: crewNames.length > 0 ? crewNames.join(', ') : '-',
           startDateLabel: toDateLabel(task.planStartDate),
           endDateLabel: toDateLabel(task.planEndDate),
@@ -260,10 +260,10 @@ export default function CompletedTwoDayReportPage() {
               className="inline-flex items-center gap-2 px-3 py-2 text-[13px] rounded-lg border border-[#d0d4e4] bg-white text-[#323338] hover:bg-[#f5f6f8]"
             >
               <ArrowLeft className="w-4 h-4" />
-              Back
+              กลับ
             </button>
             <label className="inline-flex items-center gap-2 px-3 py-2 text-[13px] rounded-lg border border-[#d0d4e4] bg-white text-[#323338]">
-              <span className="font-medium">Report Date</span>
+              <span className="font-medium">วันที่รายงาน</span>
               <input
                 type="date"
                 value={selectedReportDateKey}
@@ -278,7 +278,7 @@ export default function CompletedTwoDayReportPage() {
             className="inline-flex items-center gap-2 px-3.5 py-2 text-[13px] font-semibold rounded-lg bg-[#0073ea] text-white hover:bg-[#0060c0]"
           >
             <Printer className="w-4 h-4" />
-            Print / Save PDF
+            พิมพ์ / บันทึก PDF
           </button>
         </div>
 
@@ -286,53 +286,53 @@ export default function CompletedTwoDayReportPage() {
           <header className="border border-[#d5dfec] rounded-lg overflow-hidden">
             <div className="bg-[#14365a] px-4 py-3 flex items-center justify-between gap-3">
               <div>
-                <div className="text-[11px] uppercase tracking-[0.16em] text-white/80 font-semibold">Corporate Project Report</div>
-                <h1 className="text-[20px] sm:text-[22px] font-black text-white leading-tight">2-Day Work Status Document</h1>
+                <div className="text-[11px] uppercase tracking-[0.16em] text-white/80 font-semibold">รายงานโครงการบริษัท</div>
+                <h1 className="text-[20px] sm:text-[22px] font-black text-white leading-tight">เอกสารประเมินผลงาน 2 วัน</h1>
               </div>
               <div className="text-right text-white/90 text-[11px]">
-                <div>Document ID: RPT-2D-{selectedReportDateKey.replaceAll('-', '')}</div>
-                <div>Revision: 01</div>
+                <div>รหัสเอกสาร: RPT-2D-{selectedReportDateKey.replaceAll('-', '')}</div>
+                <div>การแก้ไข: 01</div>
               </div>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-0">
               <div className="px-4 py-2.5 border-r border-b border-[#dbe4f0]">
-                <div className="text-[10px] uppercase tracking-wider text-[#6f8196] font-semibold">Project Name</div>
-                <div className="mt-1 text-[13px] font-semibold text-[#1f3147] break-words">{activeProject?.name || 'No Project Selected'}</div>
+                <div className="text-[10px] uppercase tracking-wider text-[#6f8196] font-semibold">ชื่อโครงการ</div>
+                <div className="mt-1 text-[13px] font-semibold text-[#1f3147] break-words">{activeProject?.name || 'ไม่ได้เลือกโครงการ'}</div>
               </div>
               <div className="px-4 py-2.5 border-r border-b border-[#dbe4f0]">
-                <div className="text-[10px] uppercase tracking-wider text-[#6f8196] font-semibold">Report Period</div>
+                <div className="text-[10px] uppercase tracking-wider text-[#6f8196] font-semibold">ช่วงเวลาที่รายงาน</div>
                 <div className="mt-1 text-[13px] font-semibold text-[#1f3147]">{report.yesterdayDateLabel} - {report.todayDateLabel}</div>
               </div>
               <div className="px-4 py-2.5 border-r border-b border-[#dbe4f0]">
-                <div className="text-[10px] uppercase tracking-wider text-[#6f8196] font-semibold">Generated At</div>
+                <div className="text-[10px] uppercase tracking-wider text-[#6f8196] font-semibold">ออกเอกสารเมื่อ</div>
                 <div className="mt-1 text-[13px] font-semibold text-[#1f3147]">{report.generatedAt}</div>
               </div>
               <div className="px-4 py-2.5 border-b border-[#dbe4f0]">
-                <div className="text-[10px] uppercase tracking-wider text-[#6f8196] font-semibold">Prepared By</div>
+                <div className="text-[10px] uppercase tracking-wider text-[#6f8196] font-semibold">จัดทำโดย</div>
                 <div className="mt-1 text-[13px] font-semibold text-[#1f3147]">POWERTEC ENGINEERING CO., LTD.</div>
               </div>
             </div>
           </header>
 
           <ReportTable
-            title={`Selected Date (${report.todayDateLabel}) - ${report.todayDoneCount} task(s)`}
+            title={`วันที่เลือก (${report.todayDateLabel}) - ${report.todayDoneCount} งาน`}
             rows={report.todayRows}
           />
           <ReportTable
-            title={`Previous Day (${report.yesterdayDateLabel}) - ${report.yesterdayDoneCount} task(s)`}
+            title={`วันก่อนหน้า (${report.yesterdayDateLabel}) - ${report.yesterdayDoneCount} งาน`}
             rows={report.yesterdayRows}
           />
 
           <section className="grid grid-cols-2 gap-4 pt-4 border-t border-[#d9e2ee]">
             <div className="border border-[#d2dceb] rounded-lg px-4 py-3">
-              <div className="text-[11px] uppercase tracking-wider text-[#6f8196] font-semibold">Prepared By</div>
+              <div className="text-[11px] uppercase tracking-wider text-[#6f8196] font-semibold">ผู้จัดทำ</div>
               <div className="mt-8 border-t border-[#dbe4ef] pt-2 text-[12px] text-[#1f3147]">____________________________</div>
-              <div className="text-[11px] text-[#6f8196]">Name / Position / Date</div>
+              <div className="text-[11px] text-[#6f8196]">ชื่อ / ตำแหน่ง / วันที่</div>
             </div>
             <div className="border border-[#d2dceb] rounded-lg px-4 py-3">
-              <div className="text-[11px] uppercase tracking-wider text-[#6f8196] font-semibold">Approved By</div>
+              <div className="text-[11px] uppercase tracking-wider text-[#6f8196] font-semibold">ผู้อนุมัติ</div>
               <div className="mt-8 border-t border-[#dbe4ef] pt-2 text-[12px] text-[#1f3147]">____________________________</div>
-              <div className="text-[11px] text-[#6f8196]">Name / Position / Date</div>
+              <div className="text-[11px] text-[#6f8196]">ชื่อ / ตำแหน่ง / วันที่</div>
             </div>
           </section>
         </article>

@@ -1,9 +1,10 @@
-﻿'use client';
+'use client';
 
 import React, { useMemo, useRef, useState } from 'react';
 import { Plus, Edit2, Trash2, Check, X, Camera, ImagePlus, Search, CheckCircle2, Loader2 } from 'lucide-react';
 import { SystemUserAccount, Task, TeamMember } from '@/types/construction';
 import { getTaskOwnerNames } from '@/utils/taskOwnerUtils';
+import { useConfirmModal } from '@/contexts/ConfirmModalContext';
 
 interface UserManagementViewProps {
     teamMembers: TeamMember[];
@@ -33,7 +34,7 @@ const getMemberType = (member: TeamMember): MemberType => (
 );
 
 const getMemberTypeLabel = (memberType: MemberType): string => (
-    memberType === 'crew' ? 'Crew' : 'Team Member'
+    memberType === 'crew' ? 'ทีมช่าง' : 'ทีมงาน'
 );
 
 const getMemberTypeBadgeClass = (memberType: MemberType): string => (
@@ -55,6 +56,7 @@ export default function UserManagementView({
     onUpdateSystemUser,
     onDeleteSystemUser,
 }: UserManagementViewProps) {
+    const modal = useConfirmModal();
     const [searchQuery, setSearchQuery] = useState('');
     const [memberTab, setMemberTab] = useState<MemberTab>('team');
     const [lineActionMemberId, setLineActionMemberId] = useState<string | null>(null);
@@ -227,7 +229,7 @@ export default function UserManagementView({
         const normalizedName = normalizeMemberName(newMemberName);
         const duplicated = teamMembers.some((member) => normalizeMemberName(member.name) === normalizedName);
         if (duplicated) {
-            alert('Member name already exists. Please use a different name.');
+            void modal.alert('มีชื่อสมาชิกนี้อยู่แล้ว โปรดใช้ชื่ออื่น', { variant: 'warning' });
             return;
         }
 
@@ -264,7 +266,7 @@ export default function UserManagementView({
             (member) => member.id !== editingMemberId && normalizeMemberName(member.name) === normalizedName
         );
         if (duplicated) {
-            alert('Member name already exists. Please use a different name.');
+            alert('มีชื่อสมาชิกนี้อยู่แล้ว โปรดใช้ชื่ออื่น');
             return;
         }
         const patch: Partial<TeamMember> = {
@@ -346,7 +348,7 @@ export default function UserManagementView({
             }, 1200);
         } catch (error) {
             console.error('Failed to copy LINE User ID:', error);
-            alert('Copy LINE User ID failed. Please try again.');
+            void modal.error('คัดลอก LINE User ID ไม่สำเร็จ โปรดลองอีกครั้ง');
         } finally {
             setLineActionMemberId(null);
         }
@@ -364,7 +366,7 @@ export default function UserManagementView({
             }, 1200);
         } catch (error) {
             console.error('Failed to copy system user LINE User ID:', error);
-            alert('Copy LINE User ID failed. Please try again.');
+            void modal.error('คัดลอก LINE User ID ไม่สำเร็จ โปรดลองอีกครั้ง');
         } finally {
             setSystemLineActionUserId(null);
         }
@@ -375,7 +377,7 @@ export default function UserManagementView({
         const username = newSystemUsername.trim().toLowerCase();
         const email = newSystemEmail.trim().toLowerCase();
         if (!displayName || !username || !email) {
-            alert('Please enter display name, username, and email.');
+            void modal.alert('โปรดระบุชื่อแสดง ชื่อผู้ใช้ และอีเมล', { variant: 'warning' });
             return;
         }
 
@@ -383,7 +385,7 @@ export default function UserManagementView({
             user.username.toLowerCase() === username || user.email.toLowerCase() === email
         );
         if (duplicated) {
-            alert('Username or email already exists in system users.');
+            void modal.alert('ชื่อผู้ใช้หรืออีเมลนี้มีอยู่ในระบบแล้ว', { variant: 'warning' });
             return;
         }
 
@@ -420,7 +422,7 @@ export default function UserManagementView({
         const username = (editingSystemData.username || '').trim().toLowerCase();
         const email = (editingSystemData.email || '').trim().toLowerCase();
         if (!displayName || !username || !email) {
-            alert('Display name, username, and email are required.');
+            alert('โปรดระบุชื่อแสดง ชื่อผู้ใช้ และอีเมล');
             return;
         }
 
@@ -429,7 +431,7 @@ export default function UserManagementView({
             && (user.username.toLowerCase() === username || user.email.toLowerCase() === email)
         );
         if (duplicated) {
-            alert('Username or email already exists in system users.');
+            void modal.alert('ชื่อผู้ใช้หรืออีเมลนี้มีอยู่ในระบบแล้ว', { variant: 'warning' });
             return;
         }
 
@@ -447,7 +449,11 @@ export default function UserManagementView({
     };
 
     const deleteSystemUser = async (user: SystemUserAccount) => {
-        const confirmed = window.confirm(`Delete system user "${user.displayName}"?`);
+        const confirmed = await modal.confirm({
+            title: 'ยืนยันการลบ',
+            message: `ลบผู้ใช้ระบบ "${user.displayName}" หรือไม่?`,
+            confirmLabel: 'ลบ',
+        });
         if (!confirmed) return;
         await Promise.resolve(onDeleteSystemUser(user.id));
     };
@@ -462,31 +468,31 @@ export default function UserManagementView({
     return (
         <div className="flex-1 flex flex-col min-w-0 bg-[#f5f6f8]">
             <header className="min-h-[64px] bg-white flex items-center px-4 sm:px-6 lg:px-8 py-3 border-b border-[#d0d4e4] gap-4 shrink-0 transition-all">
-                <h1 className="text-[22px] sm:text-[26px] font-bold tracking-tight text-[#323338] truncate">User Management</h1>
+                <h1 className="text-[22px] sm:text-[26px] font-bold tracking-tight text-[#323338] truncate">การจัดการผู้ใช้</h1>
             </header>
 
             <div className="flex-1 overflow-auto p-4 sm:p-6 lg:p-8">
                 <div className="max-w-[1500px] space-y-4">
                     <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-3">
                         <div className="bg-white border border-[#d0d4e4] rounded-xl px-4 py-3">
-                            <div className="text-[11px] text-[#676879] uppercase tracking-wider font-semibold">Members</div>
+                            <div className="text-[11px] text-[#676879] uppercase tracking-wider font-semibold">สมาชิก</div>
                             <div className="text-2xl font-black text-[#323338] mt-1">{summary.members}</div>
-                            <div className="text-[11px] text-[#676879] mt-1">Team {summary.teamCount} • Crew {summary.crewCount} • User/Pass {summary.systemUsers}</div>
+                            <div className="text-[11px] text-[#676879] mt-1">ทีม {summary.teamCount} • ช่าง {summary.crewCount} • ผู้ใช้/รหัสผ่าน {summary.systemUsers}</div>
                         </div>
                         <div className="bg-white border border-[#d0d4e4] rounded-xl px-4 py-3">
-                            <div className="text-[11px] text-[#676879] uppercase tracking-wider font-semibold">Total Capacity</div>
+                            <div className="text-[11px] text-[#676879] uppercase tracking-wider font-semibold">ขีดจำกัดชั่วโมงรวม</div>
                             <div className="text-2xl font-black text-[#00c875] mt-1">{summary.totalCapacity}h</div>
                         </div>
                         <div className="bg-white border border-[#d0d4e4] rounded-xl px-4 py-3">
-                            <div className="text-[11px] text-[#676879] uppercase tracking-wider font-semibold">Assigned Hours</div>
+                            <div className="text-[11px] text-[#676879] uppercase tracking-wider font-semibold">ชั่วโมงที่มอบหมาย</div>
                             <div className="text-2xl font-black text-[#0073ea] mt-1">{summary.totalAssigned}h</div>
                         </div>
                         <div className="bg-white border border-[#d0d4e4] rounded-xl px-4 py-3">
-                            <div className="text-[11px] text-[#676879] uppercase tracking-wider font-semibold">LINE Linked</div>
+                            <div className="text-[11px] text-[#676879] uppercase tracking-wider font-semibold">เชื่อมโยง LINE แล้ว</div>
                             <div className="text-2xl font-black text-[#00c875] mt-1">{summary.lineLinked}</div>
                         </div>
                         <div className="bg-white border border-[#d0d4e4] rounded-xl px-4 py-3">
-                            <div className="text-[11px] text-[#676879] uppercase tracking-wider font-semibold">Overloaded</div>
+                            <div className="text-[11px] text-[#676879] uppercase tracking-wider font-semibold">ทำงานเกินชั่วโมง</div>
                             <div className="text-2xl font-black text-[#e2445c] mt-1">{summary.overloaded}</div>
                         </div>
                     </div>
@@ -494,13 +500,13 @@ export default function UserManagementView({
                     <div className="bg-white rounded-xl shadow-sm border border-[#d0d4e4] overflow-hidden">
                         <div className="p-4 sm:p-6 border-b border-[#d0d4e4] bg-[#f5f6f8] space-y-4">
                             <div className="flex flex-col lg:flex-row gap-3 lg:items-center lg:justify-between">
-                                <h2 className="text-xl font-semibold text-[#323338]">Team Members, Crew & System Users</h2>
+                                <h2 className="text-xl font-semibold text-[#323338]">พนักงานและผู้รับเหมาในระบบ</h2>
                                 <div className="relative w-full lg:w-[320px]">
                                     <Search className="absolute left-3 top-2.5 w-4 h-4 text-[#a0a2b1]" />
                                     <input
                                         value={searchQuery}
                                         onChange={(e) => setSearchQuery(e.target.value)}
-                                        placeholder="Search name, role, username, email..."
+                                        placeholder="ค้นหาชื่อ, บทบาท, ชื่อผู้ใช้, อีเมล..."
                                         className="w-full bg-white border border-[#d0d4e4] rounded-lg pl-9 pr-3 py-2 text-[13px] outline-none focus:ring-2 focus:ring-[#0073ea]"
                                     />
                                 </div>
@@ -512,14 +518,14 @@ export default function UserManagementView({
                                     onClick={() => setMemberTab('team')}
                                     className={`px-3 py-1.5 rounded-md text-[12px] font-semibold transition-colors ${memberTab === 'team' ? 'bg-[#0073ea] text-white' : 'text-[#676879] hover:bg-[#f5f6f8]'}`}
                                 >
-                                    Owner ({summary.teamCount})
+                                    ผู้รับผิดชอบ ({summary.teamCount})
                                 </button>
                                 <button
                                     type="button"
                                     onClick={() => setMemberTab('crew')}
                                     className={`px-3 py-1.5 rounded-md text-[12px] font-semibold transition-colors ${memberTab === 'crew' ? 'bg-[#fdab3d] text-white' : 'text-[#676879] hover:bg-[#f5f6f8]'}`}
                                 >
-                                    Team ช่าง ({summary.crewCount})
+                                    ทีมช่าง ({summary.crewCount})
                                 </button>
                                 <button
                                     type="button"
@@ -551,22 +557,22 @@ export default function UserManagementView({
                                 </div>
 
                                 <div className="flex-1 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-6">
-                                    <input value={newMemberName} onChange={(e) => setNewMemberName(e.target.value)} placeholder="Name" className="w-full bg-white border border-[#d0d4e4] rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-[#0073ea] text-[#323338]" />
+                                    <input value={newMemberName} onChange={(e) => setNewMemberName(e.target.value)} placeholder="ชื่อ" className="w-full bg-white border border-[#d0d4e4] rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-[#0073ea] text-[#323338]" />
                                     <select
                                         value={newMemberType}
                                         onChange={(e) => setNewMemberType(e.target.value as MemberType)}
                                         className="w-full bg-white border border-[#d0d4e4] rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-[#0073ea] text-[#323338]"
                                     >
-                                        <option value="team">Team Member</option>
-                                        <option value="crew">Crew</option>
+                                        <option value="team">ทีมงาน</option>
+                                        <option value="crew">ทีมช่าง</option>
                                     </select>
-                                    <input value={newMemberPosition} onChange={(e) => setNewMemberPosition(e.target.value)} placeholder="Position" className="w-full bg-white border border-[#d0d4e4] rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-[#0073ea] text-[#323338]" />
-                                    <input value={newMemberDepartment} onChange={(e) => setNewMemberDepartment(e.target.value)} placeholder="Department" className="w-full bg-white border border-[#d0d4e4] rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-[#0073ea] text-[#323338]" />
-                                    <input value={newMemberPhone} onChange={(e) => setNewMemberPhone(e.target.value)} placeholder="Phone" className="w-full bg-white border border-[#d0d4e4] rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-[#0073ea] text-[#323338]" />
-                                    <input type="number" min="1" max="168" value={newMemberCapacity} onChange={(e) => setNewMemberCapacity(e.target.value)} placeholder="Capacity h/week" className="w-full bg-white border border-[#d0d4e4] rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-[#0073ea] text-[#323338]" />
+                                    <input value={newMemberPosition} onChange={(e) => setNewMemberPosition(e.target.value)} placeholder="ตำแหน่ง" className="w-full bg-white border border-[#d0d4e4] rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-[#0073ea] text-[#323338]" />
+                                    <input value={newMemberDepartment} onChange={(e) => setNewMemberDepartment(e.target.value)} placeholder="แผนก" className="w-full bg-white border border-[#d0d4e4] rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-[#0073ea] text-[#323338]" />
+                                    <input value={newMemberPhone} onChange={(e) => setNewMemberPhone(e.target.value)} placeholder="เบอร์โทร" className="w-full bg-white border border-[#d0d4e4] rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-[#0073ea] text-[#323338]" />
+                                    <input type="number" min="1" max="168" value={newMemberCapacity} onChange={(e) => setNewMemberCapacity(e.target.value)} placeholder="ชั่วโมงทำงาน/สัปดาห์" className="w-full bg-white border border-[#d0d4e4] rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-[#0073ea] text-[#323338]" />
                                 </div>
                                 <button onClick={handleAddMember} disabled={!newMemberName.trim()} className="bg-[#0073ea] hover:bg-[#0060c0] disabled:bg-[#d0d4e4] disabled:cursor-not-allowed text-white px-5 py-2 rounded-lg font-medium transition-colors flex items-center justify-center gap-2 h-[42px] w-full lg:w-auto">
-                                    <Plus className="w-4 h-4" /> Add
+                                    <Plus className="w-4 h-4" /> เพิ่ม
                                 </button>
                                 </div>
                             )}
@@ -576,25 +582,25 @@ export default function UserManagementView({
                                     <input
                                         value={newSystemDisplayName}
                                         onChange={(e) => setNewSystemDisplayName(e.target.value)}
-                                        placeholder="Display Name"
+                                        placeholder="ชื่อแสดง"
                                         className="w-full bg-white border border-[#d0d4e4] rounded-lg px-3 py-2 text-[13px] outline-none focus:ring-2 focus:ring-[#0073ea]"
                                     />
                                     <input
                                         value={newSystemUsername}
                                         onChange={(e) => setNewSystemUsername(e.target.value)}
-                                        placeholder="Username"
+                                        placeholder="ชื่อผู้ใช้"
                                         className="w-full bg-white border border-[#d0d4e4] rounded-lg px-3 py-2 text-[13px] outline-none focus:ring-2 focus:ring-[#0073ea]"
                                     />
                                     <input
                                         value={newSystemEmail}
                                         onChange={(e) => setNewSystemEmail(e.target.value)}
-                                        placeholder="Email"
+                                        placeholder="อีเมล"
                                         className="w-full bg-white border border-[#d0d4e4] rounded-lg px-3 py-2 text-[13px] outline-none focus:ring-2 focus:ring-[#0073ea]"
                                     />
                                     <input
                                         value={newSystemPhone}
                                         onChange={(e) => setNewSystemPhone(e.target.value)}
-                                        placeholder="Phone"
+                                        placeholder="เบอร์โทร"
                                         className="w-full bg-white border border-[#d0d4e4] rounded-lg px-3 py-2 text-[13px] outline-none focus:ring-2 focus:ring-[#0073ea]"
                                     />
                                     <input
@@ -617,7 +623,7 @@ export default function UserManagementView({
                                         disabled={!newSystemDisplayName.trim() || !newSystemUsername.trim() || !newSystemEmail.trim()}
                                         className="bg-[#334155] hover:bg-[#1f2937] disabled:bg-[#d0d4e4] disabled:cursor-not-allowed text-white px-4 py-2 rounded-lg text-[13px] font-medium"
                                     >
-                                        Add User
+                                        เพิ่มผู้ใช้
                                     </button>
                                 </div>
                             )}
@@ -626,15 +632,15 @@ export default function UserManagementView({
                         {memberTab === 'system' ? (
                             <div className="divide-y divide-[#e6e9ef]">
                                 <div className="grid grid-cols-1 md:grid-cols-[1.2fr_1fr_1.3fr_1fr_1.2fr_0.9fr_1fr_1fr_auto] gap-2 px-4 py-2 bg-[#f8fafc] text-[11px] font-bold uppercase tracking-wider text-[#676879]">
-                                    <div>Display Name</div>
-                                    <div>Username</div>
-                                    <div>Email</div>
-                                    <div>Phone</div>
+                                    <div>ชื่อแสดง</div>
+                                    <div>ชื่อผู้ใช้</div>
+                                    <div>อีเมล</div>
+                                    <div>เบอร์โทร</div>
                                     <div>LINE User ID</div>
-                                    <div>Provider</div>
-                                    <div>Last Login</div>
-                                    <div>Created</div>
-                                    <div className="text-right">Actions</div>
+                                    <div>ผู้ให้บริการ</div>
+                                    <div>เข้าสู่ระบบล่าสุด</div>
+                                    <div>สร้างเมื่อ</div>
+                                    <div className="text-right">จัดการ</div>
                                 </div>
                                 {filteredSystemUsers.map((user) => (
                                     <div key={user.id} className="grid grid-cols-1 md:grid-cols-[1.2fr_1fr_1.3fr_1fr_1.2fr_0.9fr_1fr_1fr_auto] gap-2 px-4 py-3 hover:bg-[#f8fafc] transition-colors items-center">
@@ -644,7 +650,7 @@ export default function UserManagementView({
                                                     value={editingSystemData.displayName || ''}
                                                     onChange={(e) => setEditingSystemData({ ...editingSystemData, displayName: e.target.value })}
                                                     className="w-full bg-white border border-[#0073ea] rounded px-2 py-1 text-[12px] outline-none"
-                                                    placeholder="Display name"
+                                                    placeholder="ชื่อแสดง"
                                                 />
                                             ) : (
                                                 <div className="text-[13px] font-semibold text-[#323338] truncate">{user.displayName || '-'}</div>
@@ -655,7 +661,7 @@ export default function UserManagementView({
                                                 value={editingSystemData.username || ''}
                                                 onChange={(e) => setEditingSystemData({ ...editingSystemData, username: e.target.value })}
                                                 className="w-full bg-white border border-[#0073ea] rounded px-2 py-1 text-[12px] outline-none"
-                                                placeholder="Username"
+                                                placeholder="ชื่อผู้ใช้"
                                             />
                                         ) : (
                                             <div className="text-[12px] text-[#323338] truncate">{user.username || '-'}</div>
@@ -665,7 +671,7 @@ export default function UserManagementView({
                                                 value={editingSystemData.email || ''}
                                                 onChange={(e) => setEditingSystemData({ ...editingSystemData, email: e.target.value })}
                                                 className="w-full bg-white border border-[#0073ea] rounded px-2 py-1 text-[12px] outline-none"
-                                                placeholder="Email"
+                                                placeholder="อีเมล"
                                             />
                                         ) : (
                                             <div className="text-[12px] text-[#323338] truncate">{user.email || '-'}</div>
@@ -675,7 +681,7 @@ export default function UserManagementView({
                                                 value={editingSystemData.phone || ''}
                                                 onChange={(e) => setEditingSystemData({ ...editingSystemData, phone: e.target.value })}
                                                 className="w-full bg-white border border-[#0073ea] rounded px-2 py-1 text-[12px] outline-none"
-                                                placeholder="Phone"
+                                                placeholder="เบอร์โทร"
                                             />
                                         ) : (
                                             <div className="text-[12px] text-[#323338] truncate">{user.phone || '-'}</div>
@@ -775,7 +781,7 @@ export default function UserManagementView({
                                     </div>
                                 ))}
                                 {filteredSystemUsers.length === 0 && (
-                                    <div className="p-8 text-center text-[#676879]">No system users found.</div>
+                                    <div className="p-8 text-center text-[#676879]">ไม่พบผู้ใช้ระบบ</div>
                                 )}
                             </div>
                         ) : (
@@ -791,7 +797,7 @@ export default function UserManagementView({
                                                 {editingMemberId === member.id ? (
                                                     <div className="shrink-0">
                                                         <input type="file" accept="image/*" ref={editAvatarRef} onChange={handleEditAvatarUpload} className="hidden" />
-                                                        <button onClick={() => editAvatarRef.current?.click()} className="relative group/avatar" title="Change Photo">
+                                                        <button onClick={() => editAvatarRef.current?.click()} className="relative group/avatar" title="เปลี่ยนรูป">
                                                             {(editingData.avatar || member.avatar) ? (
                                                                 <div className="relative">
                                                                     <img src={editingData.avatar || member.avatar} alt={member.name} referrerPolicy="no-referrer" className="w-10 h-10 rounded-full object-cover border-2 border-[#0073ea] shadow-sm" />
@@ -820,19 +826,19 @@ export default function UserManagementView({
 
                                                 {editingMemberId === member.id ? (
                                                     <div className="grid grid-cols-1 sm:grid-cols-6 flex-1 px-2 gap-2 items-center">
-                                                        <input value={editingData.name || ''} onChange={(e) => setEditingData({ ...editingData, name: e.target.value })} className="w-full bg-white border border-[#0073ea] rounded px-2 py-1 text-sm focus:outline-none" placeholder="Name" />
+                                                        <input value={editingData.name || ''} onChange={(e) => setEditingData({ ...editingData, name: e.target.value })} className="w-full bg-white border border-[#0073ea] rounded px-2 py-1 text-sm focus:outline-none" placeholder="ชื่อ" />
                                                         <select
                                                             value={editingData.memberType === 'crew' ? 'crew' : 'team'}
                                                             onChange={(e) => setEditingData({ ...editingData, memberType: e.target.value as MemberType })}
                                                             className="w-full bg-white border border-[#0073ea] rounded px-2 py-1 text-sm focus:outline-none"
                                                         >
-                                                            <option value="team">Team Member</option>
-                                                            <option value="crew">Crew</option>
+                                                            <option value="team">ทีมงาน</option>
+                                                            <option value="crew">ทีมช่าง</option>
                                                         </select>
-                                                        <input value={editingData.position || ''} onChange={(e) => setEditingData({ ...editingData, position: e.target.value })} className="w-full bg-white border border-[#0073ea] rounded px-2 py-1 text-sm focus:outline-none" placeholder="Position" />
-                                                        <input value={editingData.department || ''} onChange={(e) => setEditingData({ ...editingData, department: e.target.value })} className="w-full bg-white border border-[#0073ea] rounded px-2 py-1 text-sm focus:outline-none" placeholder="Department" />
-                                                        <input value={editingData.phone || ''} onChange={(e) => setEditingData({ ...editingData, phone: e.target.value })} className="w-full bg-white border border-[#0073ea] rounded px-2 py-1 text-sm focus:outline-none" placeholder="Phone" />
-                                                        <input type="number" min="1" max="168" value={editingData.capacityHoursPerWeek ?? 40} onChange={(e) => setEditingData({ ...editingData, capacityHoursPerWeek: Number.parseInt(e.target.value, 10) || 40 })} className="w-full bg-white border border-[#0073ea] rounded px-2 py-1 text-sm focus:outline-none" placeholder="Capacity" />
+                                                        <input value={editingData.position || ''} onChange={(e) => setEditingData({ ...editingData, position: e.target.value })} className="w-full bg-white border border-[#0073ea] rounded px-2 py-1 text-sm focus:outline-none" placeholder="ตำแหน่ง" />
+                                                        <input value={editingData.department || ''} onChange={(e) => setEditingData({ ...editingData, department: e.target.value })} className="w-full bg-white border border-[#0073ea] rounded px-2 py-1 text-sm focus:outline-none" placeholder="แผนก" />
+                                                        <input value={editingData.phone || ''} onChange={(e) => setEditingData({ ...editingData, phone: e.target.value })} className="w-full bg-white border border-[#0073ea] rounded px-2 py-1 text-sm focus:outline-none" placeholder="เบอร์โทร" />
+                                                        <input type="number" min="1" max="168" value={editingData.capacityHoursPerWeek ?? 40} onChange={(e) => setEditingData({ ...editingData, capacityHoursPerWeek: Number.parseInt(e.target.value, 10) || 40 })} className="w-full bg-white border border-[#0073ea] rounded px-2 py-1 text-sm focus:outline-none" placeholder="ชั่วโมงทำงาน" />
                                                     </div>
                                                 ) : (
                                                     <div className="grid grid-cols-1 sm:grid-cols-7 flex-1 px-2 gap-2 items-center min-w-0">
@@ -843,7 +849,7 @@ export default function UserManagementView({
                                                                     type="button"
                                                                     onClick={() => void handleLineBadgeClick(member)}
                                                                     disabled={lineActionMemberId === member.id}
-                                                                    title={member.lineUserId ? 'LINE linked' : 'LINE not linked'}
+                                                                    title={member.lineUserId ? 'เชื่อมโยง LINE แล้ว' : 'ยังไม่เชื่อมโยง LINE'}
                                                                     className="shrink-0 inline-flex items-center gap-1 rounded-full bg-[#e6faef] text-[#00a66a] border border-[#b8ebd2] px-2 py-0.5 text-[10px] font-bold hover:bg-[#d9f5e8] disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
                                                                 >
                                                                     {lineActionMemberId === member.id ? (
@@ -854,7 +860,7 @@ export default function UserManagementView({
                                                                     ) : lineCopiedMemberId === member.id ? (
                                                                         <>
                                                                             <Check className="w-3 h-3" />
-                                                                            Copied
+                                                                            คัดลอกแล้ว
                                                                         </>
                                                                     ) : (
                                                                         <>
@@ -873,9 +879,9 @@ export default function UserManagementView({
                                                         <div className="text-[#676879] text-sm truncate">{member.position}</div>
                                                         <div className="text-[#676879] text-sm truncate">{member.department}</div>
                                                         <div className="text-[#676879] text-sm truncate">{member.phone}</div>
-                                                        <div className="text-[#676879] text-sm truncate">{capacity} h/wk</div>
+                                                        <div className="text-[#676879] text-sm truncate">{capacity} ชม./สัปดาห์</div>
                                                         <div className={`text-sm font-semibold truncate ${overloaded ? 'text-[#e2445c]' : 'text-[#0052cc]'}`}>
-                                                            {load.assignedHours} h • {load.taskCount} open tasks
+                                                            {load.assignedHours} ชม. • กำลังทำ {load.taskCount} งาน
                                                         </div>
                                                     </div>
                                                 )}
@@ -900,7 +906,7 @@ export default function UserManagementView({
 
                                 {filteredTeamMembers.length === 0 && (
                                     <div className="p-8 text-center text-[#676879]">
-                                        {memberTab === 'team' ? 'No owner found.' : 'No crew found.'}
+                                        {memberTab === 'team' ? 'ไม่พบผู้รับผิดชอบ' : 'ไม่พบทีมช่าง'}
                                     </div>
                                 )}
                             </div>
@@ -913,17 +919,17 @@ export default function UserManagementView({
                 <div className="fixed inset-0 z-[100] bg-black/40 backdrop-blur-[1px] flex items-center justify-center p-4">
                     <div className="w-full max-w-md bg-white rounded-xl border border-[#d0d4e4] shadow-2xl">
                         <div className="px-5 py-4 border-b border-[#e6e9ef]">
-                            <h3 className="text-[18px] font-bold text-[#323338]">Confirm Delete</h3>
+                            <h3 className="text-[18px] font-bold text-[#323338]">ยืนยันการลบ</h3>
                         </div>
                         <div className="px-5 py-4 text-[14px] text-[#323338] space-y-2">
                             <p>
-                                Delete member <span className="font-semibold">{pendingDeleteMember.name}</span>?
+                                ลบสมาชิก <span className="font-semibold">{pendingDeleteMember.name}</span> หรือไม่?
                             </p>
                             <p className="text-[#676879] text-[13px]">
-                                Related tasks will be updated to remove this owner.
+                                งานที่เกี่ยวข้องจะถูกอัปเดตเพื่อลบผู้รับผิดชอบคนนี้ออก
                             </p>
                             <p className="text-[#676879] text-[13px]">
-                                Impacted tasks: <span className="font-semibold text-[#323338]">{pendingDeleteImpactCount}</span>
+                                จำนวนงานที่ได้รับผลกระทบ: <span className="font-semibold text-[#323338]">{pendingDeleteImpactCount}</span>
                             </p>
                         </div>
                         <div className="px-5 py-4 border-t border-[#e6e9ef] flex items-center justify-end gap-2">
@@ -933,7 +939,7 @@ export default function UserManagementView({
                                 disabled={isDeletingMember}
                                 className="px-3 py-2 rounded-lg text-[13px] font-medium bg-[#f5f6f8] text-[#323338] hover:bg-[#e6e9ef] disabled:opacity-60"
                             >
-                                Cancel
+                                ยกเลิก
                             </button>
                             <button
                                 type="button"
@@ -942,7 +948,7 @@ export default function UserManagementView({
                                 className="px-3 py-2 rounded-lg text-[13px] font-medium bg-[#e2445c] text-white hover:bg-[#c9344b] disabled:opacity-60 inline-flex items-center gap-1.5"
                             >
                                 {isDeletingMember && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-                                Delete
+                                ลบ
                             </button>
                         </div>
                     </div>
