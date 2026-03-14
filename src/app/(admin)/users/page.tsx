@@ -43,7 +43,7 @@ export default function UsersPage() {
             setTeamMembers(prev => prev.filter(m => m.id !== member.id));
             void modal.error('ไม่สามารถเพิ่มสมาชิกทีมได้ โปรดลองอีกครั้ง');
         }
-    }, [dataSource, setTeamMembers]);
+    }, [dataSource, modal, setTeamMembers]);
 
     const handleUpdateMember = useCallback(async (memberId: string, patch: Partial<TeamMember>) => {
         const currentMember = teamMembers.find(m => m.id === memberId);
@@ -80,7 +80,7 @@ export default function UsersPage() {
             }
             void modal.error('ไม่สามารถอัปเดตสมาชิกทีมได้ โปรดลองอีกครั้ง');
         }
-    }, [dataSource, setTasks, setTeamMembers, tasks, teamMembers]);
+    }, [dataSource, modal, setTasks, setTeamMembers, tasks, teamMembers]);
 
     const handleDeleteMember = useCallback(async (memberId: string) => {
         const memberToDelete = teamMembers.find(m => m.id === memberId);
@@ -140,7 +140,7 @@ export default function UsersPage() {
             }
             void modal.error('ไม่สามารถลบสมาชิกทีมได้ โปรดลองอีกครั้ง');
         }
-    }, [dataSource, setTasks, setTeamMembers, tasks, teamMembers]);
+    }, [dataSource, modal, setTasks, setTeamMembers, tasks, teamMembers]);
 
     const handleAddSystemUser = useCallback(async (payload: {
         id?: string;
@@ -172,7 +172,7 @@ export default function UsersPage() {
             console.error('Failed to add system user:', error);
             void modal.error('ไม่สามารถเพิ่มผู้ใช้ระบบได้ โปรดลองอีกครั้ง');
         }
-    }, [dataSource]);
+    }, [dataSource, modal]);
 
     const handleUpdateSystemUser = useCallback(async (userId: string, patch: Partial<SystemUserAccount>) => {
         if (dataSource !== 'firebase') {
@@ -187,7 +187,7 @@ export default function UsersPage() {
             console.error('Failed to update system user:', error);
             void modal.error('ไม่สามารถอัปเดตผู้ใช้ระบบได้ โปรดลองอีกครั้ง');
         }
-    }, [dataSource]);
+    }, [dataSource, modal]);
 
     const handleDeleteSystemUser = useCallback(async (userId: string) => {
         if (dataSource !== 'firebase') {
@@ -200,7 +200,7 @@ export default function UsersPage() {
             console.error('Failed to delete system user:', error);
             void modal.error('ไม่สามารถลบผู้ใช้ระบบได้ โปรดลองอีกครั้ง');
         }
-    }, [dataSource]);
+    }, [dataSource, modal]);
 
     if (loading) return <LinearLoadingScreen message="กำลังโหลดผู้ใช้งาน..." />;
 

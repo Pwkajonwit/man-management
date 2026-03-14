@@ -481,11 +481,11 @@ export default function UserManagementView({
                         </div>
                         <div className="bg-white border border-[#d0d4e4] rounded-xl px-4 py-3">
                             <div className="text-[11px] text-[#676879] uppercase tracking-wider font-semibold">ขีดจำกัดชั่วโมงรวม</div>
-                            <div className="text-2xl font-black text-[#00c875] mt-1">{summary.totalCapacity}h</div>
+                            <div className="text-2xl font-black text-[#00c875] mt-1">{summary.totalCapacity} ชั่วโมง</div>
                         </div>
                         <div className="bg-white border border-[#d0d4e4] rounded-xl px-4 py-3">
                             <div className="text-[11px] text-[#676879] uppercase tracking-wider font-semibold">ชั่วโมงที่มอบหมาย</div>
-                            <div className="text-2xl font-black text-[#0073ea] mt-1">{summary.totalAssigned}h</div>
+                            <div className="text-2xl font-black text-[#0073ea] mt-1">{summary.totalAssigned} ชั่วโมง</div>
                         </div>
                         <div className="bg-white border border-[#d0d4e4] rounded-xl px-4 py-3">
                             <div className="text-[11px] text-[#676879] uppercase tracking-wider font-semibold">เชื่อมโยง LINE แล้ว</div>

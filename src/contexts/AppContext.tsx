@@ -19,7 +19,6 @@ import {
     createTaskUpdate as fbCreateTaskUpdate,
     subscribeNotificationSettings as fbSubscribeNotificationSettings,
     upsertNotificationSettings as fbUpsertNotificationSettings,
-    seedInitialData,
 } from '@/lib/firestore';
 
 interface TaskUpdate {
@@ -231,9 +230,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
         async function init() {
             setLoading(true);
             try {
-                // Seed data if Firestore is empty
-                await seedInitialData();
-
                 // Subscribe to project-level collections only
                 unsubProjects = subscribeProjects((data) => {
                     setProjects(data);

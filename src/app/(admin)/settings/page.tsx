@@ -195,7 +195,7 @@ export default function SettingsPage() {
 
     const preview = useMemo(() => {
         if (!selectedMember) {
-            return { total: 0, overdue: 0, dueSoon: 0, inProgress: 0, notStarted: 0, completed: 0, tasks: [] as Task[] };
+            return { total: 0, overdue: 0, dueSoon: 0, inProgress: 0, notStarted: 0, completed: 0, tasks: [] as Task[], reportTasks: [] as Task[] };
         }
 
         const memberTasks = scopedTasks.filter((task) => {
@@ -223,6 +223,7 @@ export default function SettingsPage() {
             notStarted: memberTasks.filter((task) => task.status === 'not-started').length,
             completed: memberTasks.filter((task) => task.status === 'completed').length,
             tasks: employeeReportIncludeTaskList ? filteredForList.slice(0, employeeReportMaxItems) : [],
+            reportTasks: employeeReportIncludeTaskList ? filteredForList : [],
         };
     }, [
         selectedMember,
@@ -270,7 +271,7 @@ export default function SettingsPage() {
                         notStarted: preview.notStarted,
                         completed: preview.completed,
                     },
-                    tasks: preview.tasks.map((task) => ({
+                    tasks: preview.reportTasks.map((task) => ({
                         name: task.name,
                         status: task.status,
                         startDate: task.planStartDate,

@@ -160,13 +160,13 @@ export default function AdminLineReportView({
             todayItems: todayItems.map((task) => ({
                 id: task.id,
                 name: task.name,
-                ownerLabel: (assignmentByTaskId.get(task.id) || []).join(', ') || 'Unassigned',
+                ownerLabel: (assignmentByTaskId.get(task.id) || []).join(', ') || 'ยังไม่มอบหมาย',
                 timeLabel: toTimeLabel(task.updatedAt),
             })),
             yesterdayItems: yesterdayItems.map((task) => ({
                 id: task.id,
                 name: task.name,
-                ownerLabel: (assignmentByTaskId.get(task.id) || []).join(', ') || 'Unassigned',
+                ownerLabel: (assignmentByTaskId.get(task.id) || []).join(', ') || 'ยังไม่มอบหมาย',
                 timeLabel: toTimeLabel(task.updatedAt),
             })),
         };
@@ -176,9 +176,9 @@ export default function AdminLineReportView({
         <div className="min-h-screen bg-[radial-gradient(circle_at_top,#eef4fb_0%,#f7fbff_45%,#f4f8fc_100%)] px-3 py-4 sm:px-4">
             <div className="mx-auto max-w-5xl space-y-3">
                 <section className="rounded-xl border border-[#d6deea] bg-white p-3.5 shadow-[0_4px_12px_rgba(20,40,70,0.06)]">
-                    <h1 className="text-[16px] font-bold text-[#1f3147]">Admin Report Viewer (LINE)</h1>
+                    <h1 className="text-[16px] font-bold text-[#1f3147]">หน้าดูรายงานแอดมิน (LINE)</h1>
                     <p className="text-[12px] text-[#5f7084] mt-0.5">
-                        Generated at {format(new Date(), 'dd/MM/yyyy HH:mm')}
+                        สร้างเมื่อ {format(new Date(), 'dd/MM/yyyy HH:mm')}
                     </p>
 
                     <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-[1fr_auto_auto_auto]">
@@ -203,7 +203,7 @@ export default function AdminLineReportView({
                                     : 'border-[#d0d8e5] bg-white text-[#334155]'
                             }`}
                         >
-                            Summary
+                            สรุปภาพรวม
                         </button>
                         <button
                             type="button"
@@ -214,7 +214,7 @@ export default function AdminLineReportView({
                                     : 'border-[#d0d8e5] bg-white text-[#334155]'
                             }`}
                         >
-                            Teamload
+                            ภาระงานทีม
                         </button>
                         <button
                             type="button"
@@ -225,26 +225,26 @@ export default function AdminLineReportView({
                                     : 'border-[#d0d8e5] bg-white text-[#334155]'
                             }`}
                         >
-                            2 Days
+                            2 วันล่าสุด
                         </button>
                     </div>
                 </section>
 
                 <section className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                     <div className="rounded-xl border border-[#d6deea] bg-white p-3">
-                        <div className="text-[10px] uppercase tracking-wide text-[#6b7f95]">Total Tasks</div>
+                        <div className="text-[10px] uppercase tracking-wide text-[#6b7f95]">งานทั้งหมด</div>
                         <div className="text-[22px] font-black text-[#1f3147] mt-1">{metrics.totalTasks}</div>
                     </div>
                     <div className="rounded-xl border border-[#f1cbd2] bg-[#fff5f6] p-3">
-                        <div className="text-[10px] uppercase tracking-wide text-[#9b2f42]">Overdue</div>
+                        <div className="text-[10px] uppercase tracking-wide text-[#9b2f42]">เกินกำหนด</div>
                         <div className="text-[22px] font-black text-[#9b2f42] mt-1">{metrics.overdue}</div>
                     </div>
                     <div className="rounded-xl border border-[#d6deea] bg-white p-3">
-                        <div className="text-[10px] uppercase tracking-wide text-[#6b7f95]">Due Soon</div>
+                        <div className="text-[10px] uppercase tracking-wide text-[#6b7f95]">ใกล้ถึงกำหนด</div>
                         <div className="text-[22px] font-black text-[#2f5f90] mt-1">{metrics.dueSoon}</div>
                     </div>
                     <div className="rounded-xl border border-[#d6deea] bg-white p-3">
-                        <div className="text-[10px] uppercase tracking-wide text-[#6b7f95]">Unassigned</div>
+                        <div className="text-[10px] uppercase tracking-wide text-[#6b7f95]">ยังไม่มอบหมาย</div>
                         <div className="text-[22px] font-black text-[#1f3147] mt-1">{metrics.unassigned}</div>
                     </div>
                 </section>
@@ -253,26 +253,26 @@ export default function AdminLineReportView({
                     <section className="rounded-xl border border-[#d6deea] bg-white p-3.5 shadow-[0_4px_12px_rgba(20,40,70,0.06)]">
                         <h2 className="text-[14px] font-bold text-[#1f3147] flex items-center gap-1.5">
                             <FolderKanban className="h-4 w-4 text-[#1d4ed8]" />
-                            Project Summary
+                            สรุปโครงการ
                         </h2>
                         <p className="text-[12px] text-[#5f7084] mt-1">
-                            {selectedProject?.name || 'No project selected'}
+                            {selectedProject?.name || 'ยังไม่ได้เลือกโครงการ'}
                         </p>
                         <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
                             <div className="rounded-lg border border-[#d6deea] bg-[#f8fbff] p-2.5">
-                                <div className="text-[10px] text-[#6b7f95]">Not Started</div>
+                                <div className="text-[10px] text-[#6b7f95]">ยังไม่เริ่ม</div>
                                 <div className="text-[18px] font-bold text-[#334155]">{metrics.notStarted}</div>
                             </div>
                             <div className="rounded-lg border border-[#d6deea] bg-[#f8fbff] p-2.5">
-                                <div className="text-[10px] text-[#6b7f95]">In Progress</div>
+                                <div className="text-[10px] text-[#6b7f95]">กำลังดำเนินการ</div>
                                 <div className="text-[18px] font-bold text-[#1d4ed8]">{metrics.inProgress}</div>
                             </div>
                             <div className="rounded-lg border border-[#d6deea] bg-[#f8fbff] p-2.5">
-                                <div className="text-[10px] text-[#6b7f95]">Completed</div>
+                                <div className="text-[10px] text-[#6b7f95]">เสร็จแล้ว</div>
                                 <div className="text-[18px] font-bold text-[#0f766e]">{metrics.completed}</div>
                             </div>
                             <div className="rounded-lg border border-[#f1cbd2] bg-[#fff5f6] p-2.5">
-                                <div className="text-[10px] text-[#9b2f42]">Delayed</div>
+                                <div className="text-[10px] text-[#9b2f42]">ล่าช้า</div>
                                 <div className="text-[18px] font-bold text-[#9b2f42]">{metrics.delayed}</div>
                             </div>
                         </div>
@@ -283,11 +283,11 @@ export default function AdminLineReportView({
                     <section className="rounded-xl border border-[#d6deea] bg-white p-3.5 shadow-[0_4px_12px_rgba(20,40,70,0.06)]">
                         <h2 className="text-[14px] font-bold text-[#1f3147] flex items-center gap-1.5">
                             <Users className="h-4 w-4 text-[#0f766e]" />
-                            Team Load Report (Today)
+                            รายงานภาระงานทีม (วันนี้)
                         </h2>
                         {teamLoad.length === 0 ? (
                             <div className="mt-3 rounded-lg border border-[#d6deea] bg-[#f8fbff] px-3 py-2.5 text-[12px] text-[#5f7084]">
-                                No open tasks assigned today.
+                                ไม่มีงานค้างที่มอบหมายสำหรับวันนี้
                             </div>
                         ) : (
                             <div className="mt-3 space-y-2">
@@ -296,12 +296,12 @@ export default function AdminLineReportView({
                                         <div className="flex items-center justify-between gap-2">
                                             <div className="min-w-0">
                                                 <div className="truncate text-[13px] font-semibold text-[#1f3147]">{row.name}</div>
-                                                <div className="text-[11px] text-[#5f7084]">Open: {row.totalOpen}</div>
+                                                <div className="text-[11px] text-[#5f7084]">งานค้าง: {row.totalOpen}</div>
                                             </div>
                                             <div className="text-right text-[11px]">
-                                                <div className="text-[#2f5f90]">Due Today: {row.dueToday}</div>
+                                                <div className="text-[#2f5f90]">ครบกำหนดวันนี้: {row.dueToday}</div>
                                                 <div className={`${row.overdue > 0 ? 'text-[#9b2f42] font-semibold' : 'text-[#5f7084]'}`}>
-                                                    Overdue: {row.overdue}
+                                                    เกินกำหนด: {row.overdue}
                                                 </div>
                                             </div>
                                         </div>
@@ -317,10 +317,10 @@ export default function AdminLineReportView({
                         <div className="rounded-xl border border-[#d6deea] bg-white p-3.5 shadow-[0_4px_12px_rgba(20,40,70,0.06)]">
                             <h2 className="text-[14px] font-bold text-[#1f3147] flex items-center gap-1.5">
                                 <ListChecks className="h-4 w-4 text-[#9a3412]" />
-                                Completed Work Summary
+                                สรุปงานที่เสร็จแล้ว
                             </h2>
                             <p className="text-[12px] text-[#5f7084] mt-1">
-                                {completedDigest.todayDateLabel} and {completedDigest.yesterdayDateLabel}
+                                {completedDigest.todayDateLabel} และ {completedDigest.yesterdayDateLabel}
                             </p>
                         </div>
 
@@ -328,12 +328,12 @@ export default function AdminLineReportView({
                             <article className="rounded-xl border border-[#d6deea] bg-white p-3.5 shadow-[0_4px_12px_rgba(20,40,70,0.06)]">
                                 <h3 className="text-[13px] font-semibold text-[#1f3147] flex items-center gap-1.5">
                                     <CalendarDays className="h-4 w-4 text-[#2f5f90]" />
-                                    Today ({completedDigest.todayDateLabel}) - {completedDigest.todayItems.length}
+                                    วันนี้ ({completedDigest.todayDateLabel}) - {completedDigest.todayItems.length}
                                 </h3>
                                 <div className="mt-2 space-y-2">
                                     {completedDigest.todayItems.length === 0 && (
                                         <div className="rounded-lg border border-[#d6deea] bg-[#f8fbff] px-3 py-2 text-[12px] text-[#5f7084]">
-                                            No completed tasks
+                                            ไม่มีงานที่เสร็จแล้ว
                                         </div>
                                     )}
                                     {completedDigest.todayItems.map((item) => (
@@ -352,12 +352,12 @@ export default function AdminLineReportView({
                             <article className="rounded-xl border border-[#d6deea] bg-white p-3.5 shadow-[0_4px_12px_rgba(20,40,70,0.06)]">
                                 <h3 className="text-[13px] font-semibold text-[#1f3147] flex items-center gap-1.5">
                                     <Clock3 className="h-4 w-4 text-[#9a3412]" />
-                                    Yesterday ({completedDigest.yesterdayDateLabel}) - {completedDigest.yesterdayItems.length}
+                                    เมื่อวาน ({completedDigest.yesterdayDateLabel}) - {completedDigest.yesterdayItems.length}
                                 </h3>
                                 <div className="mt-2 space-y-2">
                                     {completedDigest.yesterdayItems.length === 0 && (
                                         <div className="rounded-lg border border-[#d6deea] bg-[#f8fbff] px-3 py-2 text-[12px] text-[#5f7084]">
-                                            No completed tasks
+                                            ไม่มีงานที่เสร็จแล้ว
                                         </div>
                                     )}
                                     {completedDigest.yesterdayItems.map((item) => (
@@ -377,7 +377,7 @@ export default function AdminLineReportView({
                 )}
 
                 <section className="rounded-xl border border-[#d6deea] bg-white p-3 shadow-[0_4px_12px_rgba(20,40,70,0.06)]">
-                    <h3 className="text-[13px] font-semibold text-[#1f3147]">Quick Status List</h3>
+                    <h3 className="text-[13px] font-semibold text-[#1f3147]">รายการสถานะโดยย่อ</h3>
                     <div className="mt-2 space-y-2">
                         {projectTasks.slice(0, 8).map((task) => (
                             <article key={task.id} className="rounded-lg border border-[#d6deea] bg-[#f8fbff] px-3 py-2">
@@ -387,20 +387,20 @@ export default function AdminLineReportView({
                                 <div className="mt-0.5 text-[11px] text-[#5f7084] flex flex-wrap items-center gap-x-2 gap-y-1">
                                     <span>{getStatusLabel(task.status)}</span>
                                     <span>•</span>
-                                    <span>Due {task.planEndDate || '-'}</span>
+                                    <span>กำหนดส่ง {task.planEndDate || '-'}</span>
                                     {isOverdue(task) && (
                                         <>
                                             <span>•</span>
                                             <span className="inline-flex items-center gap-1 text-[#9b2f42] font-semibold">
                                                 <AlertTriangle className="h-3.5 w-3.5" />
-                                                Overdue
+                                                เกินกำหนด
                                             </span>
                                         </>
                                     )}
                                     {(!isOverdue(task) && isDueSoon(task)) && (
                                         <>
                                             <span>•</span>
-                                            <span className="text-[#2f5f90] font-semibold">Due soon</span>
+                                            <span className="text-[#2f5f90] font-semibold">ใกล้ถึงกำหนด</span>
                                         </>
                                     )}
                                     {(assignmentByTaskId.get(task.id) || []).length === 0 && (
@@ -408,7 +408,7 @@ export default function AdminLineReportView({
                                             <span>•</span>
                                             <span className="inline-flex items-center gap-1 text-[#5f7084]">
                                                 <UserX2 className="h-3.5 w-3.5" />
-                                                Unassigned
+                                                ยังไม่มอบหมาย
                                             </span>
                                         </>
                                     )}
@@ -417,7 +417,7 @@ export default function AdminLineReportView({
                         ))}
                         {projectTasks.length === 0 && (
                             <div className="rounded-lg border border-[#d6deea] bg-[#f8fbff] px-3 py-2 text-[12px] text-[#5f7084]">
-                                No tasks in this project.
+                                ไม่มีงานในโครงการนี้
                             </div>
                         )}
                     </div>
@@ -426,4 +426,3 @@ export default function AdminLineReportView({
         </div>
     );
 }
-

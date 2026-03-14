@@ -1,6 +1,6 @@
 import {
     collection, doc, getDocs, addDoc, updateDoc, deleteDoc,
-    query, where, onSnapshot, setDoc, writeBatch, deleteField
+    query, where, onSnapshot, setDoc, deleteField
 } from 'firebase/firestore';
 import { db } from './firebase';
 import { Project, Task, TeamMember, SubTask, Attachment, ActivityEntry, NotificationSettings, SystemUserAccount } from '@/types/construction';
@@ -308,71 +308,3 @@ export function subscribeActivityLogForTask(taskId: string, callback: (entries: 
     });
 }
 
-// ========== SEED DATA ==========
-
-export async function seedInitialData(): Promise<void> {
-    const existingProjects = await getDocs(collection(db, 'projects'));
-    if (existingProjects.docs.length > 0) {
-        console.log('Data already exists, skipping seed.');
-        return;
-    }
-
-    const now = new Date();
-    const fmt = (d: Date) => d.toISOString().split('T')[0];
-    const sub = (days: number) => new Date(now.getTime() - days * 86400000);
-    const add = (days: number) => new Date(now.getTime() + days * 86400000);
-
-    const batch = writeBatch(db);
-
-    const projRef = doc(db, 'projects', 'proj-1');
-    batch.set(projRef, {
-        name: "Monday.com Style Demo", description: "A demonstration project",
-        owner: "System Admin", status: "in-progress",
-        startDate: fmt(sub(10)), endDate: fmt(add(50)),
-        overallProgress: 35, createdAt: now.toISOString(), updatedAt: now.toISOString()
-    });
-
-    const projRef2 = doc(db, 'projects', 'proj-2');
-    batch.set(projRef2, {
-        name: "Website Redesign", description: "Redesigning company website",
-        owner: "Marketing", status: "planning",
-        startDate: fmt(now), endDate: fmt(add(30)),
-        overallProgress: 0, createdAt: now.toISOString(), updatedAt: now.toISOString()
-    });
-
-    const tasksData = [
-        { id: 't1', name: "Define MVP scope", category: "Planning", responsible: "Alex M.", planStartDate: fmt(sub(10)), planEndDate: fmt(sub(5)), planDuration: 5, estimatedHours: 16, progress: 100, status: "completed", priority: "high", order: 1 },
-        { id: 't2', name: "Design Database Schema", category: "Planning", responsible: "Sarah T.", planStartDate: fmt(sub(4)), planEndDate: fmt(sub(1)), planDuration: 6, estimatedHours: 24, progress: 60, status: "in-progress", priority: "urgent", order: 2 },
-        { id: 't3', name: "Finalize UI Mockups", category: "Planning", responsible: "Chris P.", planStartDate: fmt(now), planEndDate: fmt(add(1)), planDuration: 7, estimatedHours: 20, progress: 10, status: "in-progress", priority: "high", order: 3 },
-        { id: 't4', name: "Setup Next.js environment", category: "Development", responsible: "Alex M.", planStartDate: fmt(sub(2)), planEndDate: fmt(add(1)), planDuration: 3, estimatedHours: 12, progress: 80, status: "in-progress", priority: "medium", order: 4 },
-        { id: 't5', name: "Implement Auth Flow", category: "Development", responsible: "Mike D.", planStartDate: fmt(add(2)), planEndDate: fmt(add(10)), planDuration: 8, estimatedHours: 28, progress: 0, status: "not-started", priority: "medium", order: 5 },
-        { id: 't6', name: "Build Dashboard Core", category: "Development", responsible: "Anna K.", planStartDate: fmt(add(8)), planEndDate: fmt(add(25)), planDuration: 17, estimatedHours: 40, progress: 0, status: "not-started", priority: "low", order: 6 },
-        { id: 't7', name: "Security Audit", category: "Review", responsible: "John H.", planStartDate: fmt(add(26)), planEndDate: fmt(add(30)), planDuration: 4, estimatedHours: 18, progress: 0, status: "not-started", order: 7 },
-        { id: 't8', name: "UAT Testing", category: "Review", responsible: "Customer", planStartDate: fmt(add(31)), planEndDate: fmt(add(45)), planDuration: 14, estimatedHours: 30, progress: 0, status: "not-started", priority: "low", order: 8 },
-    ];
-
-    for (const t of tasksData) {
-        batch.set(doc(db, 'tasks', t.id), { ...t, projectId: 'proj-1', createdAt: now.toISOString(), updatedAt: now.toISOString() });
-    }
-
-    const membersData = [
-        { id: 'u1', name: "Alex M.", position: "Project Manager", department: "Management", phone: "081-111-1234", capacityHoursPerWeek: 40 },
-        { id: 'u2', name: "Sarah T.", position: "Frontend Developer", department: "Engineering", phone: "082-222-2345", capacityHoursPerWeek: 40 },
-        { id: 'u3', name: "Chris P.", position: "UI/UX Designer", department: "Design", phone: "083-333-3456", capacityHoursPerWeek: 35 },
-        { id: 'u4', name: "Mike D.", position: "Backend Developer", department: "Engineering", phone: "084-444-4567", capacityHoursPerWeek: 40 },
-        { id: 'u5', name: "Anna K.", position: "QA Engineer", department: "Quality Assurance", phone: "085-555-5678", capacityHoursPerWeek: 35 },
-        { id: 'u6', name: "John H.", position: "Security Analyst", department: "Security", phone: "086-666-6789", capacityHoursPerWeek: 30 },
-        { id: 'u7', name: "Customer", position: "Client", department: "External", phone: "-", capacityHoursPerWeek: 20 },
-    ];
-
-    for (const m of membersData) {
-        batch.set(doc(db, 'teamMembers', m.id), m);
-    }
-
-    batch.set(doc(db, 'subtasks', 'st1'), { taskId: 't2', name: "Define entities and relationships", completed: true, createdAt: now.toISOString() });
-    batch.set(doc(db, 'subtasks', 'st2'), { taskId: 't2', name: "Create ERD diagram", completed: false, createdAt: now.toISOString() });
-    batch.set(doc(db, 'subtasks', 'st3'), { taskId: 't2', name: "Review with team lead", completed: false, createdAt: now.toISOString() });
-
-    await batch.commit();
-    console.log('Initial data seeded to Firestore!');
-}

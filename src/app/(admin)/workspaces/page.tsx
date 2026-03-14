@@ -23,6 +23,28 @@ import { useConfirmModal } from '@/contexts/ConfirmModalContext';
 const PRIORITIES = ['urgent', 'high', 'medium', 'low'] as const;
 const TASK_STATUSES: Task['status'][] = ['not-started', 'in-progress', 'completed', 'delayed'];
 const PROJECT_STATUSES: Project['status'][] = ['planning', 'in-progress', 'on-hold', 'completed'];
+const LINE_REPORT_OPTIONS = [
+  {
+    value: 'project-summary',
+    label: 'สรุปภาพรวมโครงการ',
+    description: 'สรุปจำนวนงานทั้งหมด งานเกินกำหนด ใกล้ครบกำหนด และสถานะหลักของโครงการ',
+    accentClassName: 'border-[#1d4ed8] bg-[#eff6ff] text-[#1d4ed8]',
+  },
+  {
+    value: 'today-team-load',
+    label: 'สรุปภาระงานทีมวันนี้',
+    description: 'สรุปงานค้าง ครบกำหนดวันนี้ และงานเกินกำหนดของแต่ละคนในโครงการ',
+    accentClassName: 'border-[#0f766e] bg-[#ecfdf5] text-[#0f766e]',
+  },
+  {
+    value: 'completed-last-2-days',
+    label: 'สรุปงานเสร็จ 2 วันล่าสุด',
+    description: 'สรุปงานที่เสร็จวันนี้และเมื่อวาน พร้อมผู้รับผิดชอบของแต่ละงาน',
+    accentClassName: 'border-[#9a3412] bg-[#fff7ed] text-[#9a3412]',
+  },
+] as const;
+
+type LineReportType = typeof LINE_REPORT_OPTIONS[number]['value'];
 
 const getPriorityColor = (priority?: string) => {
   switch (priority) {
@@ -103,6 +125,10 @@ export default function TaskBoardPage() {
   const [pendingDeleteTask, setPendingDeleteTask] = useState<Task | null>(null);
   const [isDeletingTask, setIsDeletingTask] = useState(false);
   const [isSendingLineReport, setIsSendingLineReport] = useState(false);
+  const [showLineReportPicker, setShowLineReportPicker] = useState(false);
+  const [selectedLineReportType, setSelectedLineReportType] = useState<LineReportType>(
+    (notificationSettings.lineReportType || 'project-summary') as LineReportType
+  );
   const [pendingAddCategory, setPendingAddCategory] = useState<string | null>(null);
   const [isCreatingTask, setIsCreatingTask] = useState(false);
   const [manualCategories, setManualCategories] = useState<string[]>([]);
@@ -145,6 +171,10 @@ export default function TaskBoardPage() {
     setProjectStatusDraft(activeProjectStatus);
   }, [activeProjectId, activeProjectName, activeProjectStatus]);
 
+  useEffect(() => {
+    setSelectedLineReportType((notificationSettings.lineReportType || 'project-summary') as LineReportType);
+  }, [notificationSettings.lineReportType]);
+
   const projectSettingsChanged = useMemo(() => {
     if (!activeProject) return false;
     return (
@@ -175,7 +205,7 @@ export default function TaskBoardPage() {
     } finally {
       setSavingProjectSettings(false);
     }
-  }, [activeProject, projectNameDraft, projectStatusDraft, updateWorkspace]);
+  }, [activeProject, modal, projectNameDraft, projectStatusDraft, updateWorkspace]);
 
   const handleDeleteProject = useCallback(async () => {
     if (!activeProject || deletingProject) return;
@@ -620,7 +650,13 @@ export default function TaskBoardPage() {
     }
   };
 
-  const handleSendLineAdminReport = async () => {
+  const openLineReportPicker = () => {
+    if (isSendingLineReport) return;
+    setSelectedLineReportType((notificationSettings.lineReportType || 'project-summary') as LineReportType);
+    setShowLineReportPicker(true);
+  };
+
+  const handleSendLineAdminReport = async (reportType: LineReportType) => {
     if (isSendingLineReport) return;
     const confirmed = await modal.confirm({
       title: 'ส่งรายงาน LINE',
@@ -628,7 +664,6 @@ export default function TaskBoardPage() {
     });
     if (!confirmed) return;
 
-    const reportType = notificationSettings.lineReportType || 'project-summary';
     const todayKey = format(new Date(), 'yyyy-MM-dd');
     const statusCounts = projectTasks.reduce(
       (acc, task) => {
@@ -653,6 +688,7 @@ export default function TaskBoardPage() {
       .filter((item) => item.totalOpen > 0 || item.dueToday > 0 || item.overdue > 0);
 
     try {
+      setShowLineReportPicker(false);
       setIsSendingLineReport(true);
       const response = await fetch('/api/line-admin-report', {
         method: 'POST',
@@ -1033,7 +1069,7 @@ export default function TaskBoardPage() {
             <Upload className="w-4 h-4" /> ส่งออก
           </button>
           <button
-            onClick={() => void handleSendLineAdminReport()}
+            onClick={openLineReportPicker}
             disabled={isSendingLineReport}
             className="flex items-center gap-2 px-3 py-2 bg-[#0073ea] hover:bg-[#0060c0] text-white border border-[#0073ea] rounded-lg transition-colors font-medium text-[13px] disabled:opacity-60 disabled:cursor-not-allowed"
             title="ส่งรายงานให้ผู้ดูแลระบบ LINE"
@@ -1706,6 +1742,75 @@ export default function TaskBoardPage() {
           </div>
         ) : null}
       </div>
+
+      {showLineReportPicker && (
+        <div className="fixed inset-0 z-[100] bg-black/40 backdrop-blur-[1px] flex items-center justify-center p-4">
+          <div className="w-full max-w-2xl bg-white rounded-xl border border-[#d0d4e4] shadow-2xl">
+            <div className="px-5 py-4 border-b border-[#e6e9ef]">
+              <h3 className="text-[18px] font-bold text-[#323338]">เลือกรายงานที่จะส่ง</h3>
+              <p className="mt-1 text-[13px] text-[#676879]">
+                เลือกประเภทรายงานที่ต้องการส่งไปยังผู้ดูแลระบบ LINE
+              </p>
+            </div>
+            <div className="px-5 py-4 space-y-3">
+              {LINE_REPORT_OPTIONS.map((option) => {
+                const isSelected = selectedLineReportType === option.value;
+                return (
+                  <button
+                    key={option.value}
+                    type="button"
+                    onClick={() => setSelectedLineReportType(option.value)}
+                    className={`w-full rounded-xl border px-4 py-3 text-left transition-colors ${
+                      isSelected
+                        ? option.accentClassName
+                        : 'border-[#d0d4e4] bg-white text-[#323338] hover:bg-[#f8fafc]'
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="text-[14px] font-semibold">{option.label}</div>
+                        <div className={`mt-1 text-[12px] ${isSelected ? 'text-current/80' : 'text-[#676879]'}`}>
+                          {option.description}
+                        </div>
+                      </div>
+                      {isSelected && (
+                        <span className="inline-flex items-center rounded-full bg-white/80 px-2 py-0.5 text-[11px] font-semibold text-[#323338]">
+                          เลือกแล้ว
+                        </span>
+                      )}
+                    </div>
+                  </button>
+                );
+              })}
+
+              {!(notificationSettings.lineAdminUserId || '').trim() && (
+                <div className="rounded-lg border border-[#ffe0b2] bg-[#fff8ee] px-4 py-3 text-[12px] text-[#8a5a00]">
+                  ยังไม่ได้ตั้งค่า LINE Admin User ID ในหน้าตั้งค่า ระบบจะลองใช้ค่าจาก environment ก่อน
+                </div>
+              )}
+            </div>
+            <div className="px-5 py-4 border-t border-[#e6e9ef] flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setShowLineReportPicker(false)}
+                disabled={isSendingLineReport}
+                className="px-3 py-2 rounded-lg text-[13px] font-medium bg-[#f5f6f8] text-[#323338] hover:bg-[#e6e9ef] disabled:opacity-60"
+              >
+                ยกเลิก
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleSendLineAdminReport(selectedLineReportType)}
+                disabled={isSendingLineReport}
+                className="inline-flex items-center gap-2 px-3 py-2 rounded-lg text-[13px] font-medium bg-[#0073ea] text-white hover:bg-[#0060c0] disabled:opacity-60"
+              >
+                <Send className="w-4 h-4" />
+                {isSendingLineReport ? 'กำลังส่ง...' : 'ส่งรายงานนี้'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {pendingAddCategory && (
         <div className="fixed inset-0 z-[100] bg-black/40 backdrop-blur-[1px] flex items-center justify-center p-4">

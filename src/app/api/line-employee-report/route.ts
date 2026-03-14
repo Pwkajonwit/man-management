@@ -118,6 +118,96 @@ function statusColor(status: string): string {
     return '#374151';
 }
 
+function isCompletedStatus(status: string): boolean {
+    const normalized = status.toLowerCase();
+    return normalized.includes('complete') || normalized.includes('done') || normalized.includes('เสร็จ');
+}
+
+function isInProgressStatus(status: string): boolean {
+    const normalized = status.toLowerCase();
+    return normalized.includes('progress') || normalized.includes('ดำเนินการ');
+}
+
+function isNotStartedStatus(status: string): boolean {
+    const normalized = status.toLowerCase();
+    return normalized.includes('not') || normalized.includes('ยังไม่เริ่ม');
+}
+
+function isOverdueTask(task: EmployeeReportPayload['tasks'][number], today: Date): boolean {
+    const normalized = task.status.toLowerCase();
+    if (
+        normalized.includes('overdue')
+        || normalized.includes('delayed')
+        || normalized.includes('stuck')
+        || normalized.includes('เกินกำหนด')
+        || normalized.includes('ล่าช้า')
+    ) {
+        return true;
+    }
+
+    const dueDate = parseDate(task.dueDate);
+    return dueDate ? dayDiff(dueDate, dayStart(today)) > 0 : false;
+}
+
+function isDueSoonTask(task: EmployeeReportPayload['tasks'][number], today: Date): boolean {
+    if (isOverdueTask(task, today)) return false;
+    const dueDate = parseDate(task.dueDate);
+    if (!dueDate) return false;
+    const diff = dayDiff(dayStart(today), dueDate);
+    return diff >= 0 && diff <= 2;
+}
+
+function getScheduleTone(task: EmployeeReportPayload['tasks'][number], today: Date) {
+    const dueDate = parseDate(task.dueDate);
+    const todayStart = dayStart(today);
+    const status = task.status.toLowerCase();
+
+    if (status.includes('delayed') || (dueDate && dayDiff(dueDate, todayStart) > 0)) {
+        return {
+            bg: '#FEF2F2',
+            border: '#FECACA',
+            text: '#B42318',
+            badge: 'เกินกำหนด',
+        };
+    }
+
+    if (dueDate && isSameDay(dueDate, todayStart)) {
+        return {
+            bg: '#FFF7ED',
+            border: '#FED7AA',
+            text: '#C2410C',
+            badge: 'ครบกำหนดวันนี้',
+        };
+    }
+
+    if (dueDate) {
+        const diff = dayDiff(todayStart, dueDate);
+        if (diff === 1) {
+            return {
+                bg: '#FEF3C7',
+                border: '#FDE68A',
+                text: '#B45309',
+                badge: 'ครบกำหนดพรุ่งนี้',
+            };
+        }
+        if (diff === 2) {
+            return {
+                bg: '#EFF6FF',
+                border: '#BFDBFE',
+                text: '#1D4ED8',
+                badge: 'ครบกำหนดอีก 2 วัน',
+            };
+        }
+    }
+
+    return {
+        bg: '#F3F4F6',
+        border: '#E5E7EB',
+        text: '#374151',
+        badge: 'ตามแผน',
+    };
+}
+
 function parseDate(value?: string): Date | null {
     if (!value) return null;
     const date = new Date(`${value}T00:00:00`);
@@ -137,11 +227,13 @@ function addDays(date: Date, days: number): Date {
     return d;
 }
 
-function formatDateDMY(date: Date): string {
-    const dd = String(date.getDate()).padStart(2, '0');
-    const mm = String(date.getMonth() + 1).padStart(2, '0');
-    const yyyy = date.getFullYear();
-    return `${dd}/${mm}/${yyyy}`;
+function formatDateLabel(value?: string): string {
+    const parsed = parseDate(value);
+    if (!parsed) return value || '-';
+    const day = String(parsed.getDate()).padStart(2, '0');
+    const month = String(parsed.getMonth() + 1).padStart(2, '0');
+    const year = parsed.getFullYear();
+    return `${day}/${month}/${year}`;
 }
 
 function isSameDay(a: Date, b: Date): boolean {
@@ -153,130 +245,47 @@ function dayDiff(start: Date, end: Date): number {
     return Math.floor(ms / 86400000);
 }
 
-function buildTimelineSection(
+function isTaskWithinFourDayWindow(task: EmployeeReportPayload['tasks'][number], today: Date): boolean {
+    const windowStart = addDays(today, -1);
+    const windowEnd = addDays(today, 2);
+    const dueDate = parseDate(task.dueDate);
+    const startDate = parseDate(task.startDate) || dueDate;
+    const endDate = parseDate(task.endDate) || dueDate || startDate;
+
+    if (!startDate && !endDate) return false;
+
+    const normalizedStart = startDate && endDate && startDate.getTime() <= endDate.getTime() ? startDate : endDate || startDate;
+    const normalizedEnd = startDate && endDate && startDate.getTime() <= endDate.getTime() ? endDate : startDate || endDate;
+
+    if (!normalizedStart || !normalizedEnd) return false;
+
+    return dayStart(normalizedStart).getTime() <= dayStart(windowEnd).getTime()
+        && dayStart(normalizedEnd).getTime() >= dayStart(windowStart).getTime();
+}
+
+function buildFourDayTimelineSection(
     tasks: EmployeeReportPayload['tasks'],
     today: Date,
     projectTitle?: string
 ): FlexBoxNode {
-    const timelineDays = Array.from({ length: 5 }, (_, idx) => addDays(today, idx - 2));
-
-    const headerDays: FlexBoxNode = {
-        type: 'box',
-        layout: 'horizontal',
-        width: '100%',
-        spacing: 'sm',
-        contents: timelineDays.map((day) => ({
-            type: 'box',
-            layout: 'vertical',
-            flex: 1,
-            alignItems: 'center',
-            contents: [
-                {
-                    type: 'text',
-                    text: String(day.getDate()),
-                    size: 'xs',
-                    color: isSameDay(day, today) ? '#DC2626' : '#6B7280',
-                    weight: isSameDay(day, today) ? 'bold' : 'regular',
-                },
-            ],
-        })),
-    };
-
-    const rows = tasks.slice(0, 3).map((task, index) => {
-        const start = parseDate(task.startDate) || parseDate(task.dueDate) || today;
-        const end = parseDate(task.endDate) || parseDate(task.dueDate) || start;
-        const normalizedStart = start.getTime() <= end.getTime() ? start : end;
-        const normalizedEnd = start.getTime() <= end.getTime() ? end : start;
-        // Duration in the timeline is inclusive of both start and end dates.
-        const duration = Math.max(1, dayDiff(normalizedStart, normalizedEnd) + 1);
-
-        const cells: FlexBoxNode[] = timelineDays.map((day) => {
-            const active = dayStart(day).getTime() >= dayStart(normalizedStart).getTime()
-                && dayStart(day).getTime() <= dayStart(normalizedEnd).getTime();
-            const isToday = isSameDay(day, today);
-
-            return {
-                type: 'box',
-                layout: 'vertical',
-                flex: 1,
-                paddingAll: '1px',
-                borderWidth: isToday ? '1px' : undefined,
-                borderColor: isToday ? '#DC2626' : undefined,
-                contents: [
-                    {
-                        type: 'box',
-                        layout: 'vertical',
-                        height: '18px',
-                        backgroundColor: active ? '#0b4580' : '#D1D5DB',
-                        cornerRadius: '2px',
-                        contents: [{ type: 'text', text: ' ', size: 'xs' }],
-                    },
-                ],
-            };
+    const previousDay = addDays(today, -1);
+    const tomorrow = addDays(today, 1);
+    const twoDaysLater = addDays(today, 2);
+    const timelineDays = [
+        { key: 'previous', label: 'ก่อนหน้า', dayLabel: String(previousDay.getDate()), date: previousDay },
+        { key: 'today', label: 'วันนี้', dayLabel: String(today.getDate()), date: today },
+        { key: 'tomorrow', label: 'พรุ่งนี้', dayLabel: String(tomorrow.getDate()), date: tomorrow },
+        { key: 'plus2', label: 'อีก 2 วัน', dayLabel: String(twoDaysLater.getDate()), date: twoDaysLater },
+    ];
+    const timelineTasks = tasks
+        .filter((task) => isTaskWithinFourDayWindow(task, today))
+        .sort((a, b) => {
+            const aDue = parseDate(a.dueDate)?.getTime() ?? Number.MAX_SAFE_INTEGER;
+            const bDue = parseDate(b.dueDate)?.getTime() ?? Number.MAX_SAFE_INTEGER;
+            return aDue - bDue || a.name.localeCompare(b.name);
         });
 
-        return {
-            type: 'box',
-            layout: 'vertical',
-            margin: index === 0 ? 'sm' : 'md',
-            paddingAll: '6px',
-            backgroundColor: '#FFFFFF',
-            cornerRadius: '6px',
-            contents: [
-                {
-                    type: 'text',
-                    text: task.name,
-                    size: 'sm',
-                    color: '#111827',
-                    weight: 'bold',
-                    wrap: true,
-                },
-                {
-                    type: 'box',
-                    layout: 'horizontal',
-                    margin: 'sm',
-                    spacing: 'sm',
-                    contents: [
-                        {
-                            type: 'box',
-                            layout: 'vertical',
-                            width: '96px',
-                            contents: [
-                                { type: 'text', text: formatDateDMY(normalizedStart), size: 'xs', color: '#4B5563' },
-                                { type: 'text', text: formatDateDMY(normalizedEnd), size: 'xs', color: '#4B5563', margin: 'sm' },
-                            ],
-                        },
-                        {
-                            type: 'box',
-                            layout: 'vertical',
-                            width: '20px',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            contents: [
-                                { type: 'text', text: String(duration), size: 'md', color: '#111827', weight: 'bold' },
-                            ],
-                        },
-                        {
-                            type: 'box',
-                            layout: 'horizontal',
-                            flex: 1,
-                            spacing: 'sm',
-                            contents: cells,
-                        },
-                    ],
-                },
-            ],
-        } as FlexBoxNode;
-    });
-
-    return {
-        type: 'box',
-        layout: 'vertical',
-        margin: 'md',
-        paddingAll: '10px',
-        backgroundColor: '#F3F4F6',
-        cornerRadius: '10px',
-        contents: [
+    const contents: Array<FlexTextNode | FlexBoxNode> = [
             ...(projectTitle
                 ? [{
                     type: 'text' as const,
@@ -288,36 +297,203 @@ function buildTimelineSection(
                 : []),
             {
                 type: 'text',
-                text: projectTitle ? 'ไทม์ไลน์ (5 วัน)' : 'ตัวอย่างไทม์ไลน์ (5 วัน)',
+                text: projectTitle ? 'ไทม์ไลน์ภาระงาน 4 วัน' : 'ไทม์ไลน์ภาระงาน 4 วัน',
                 size: 'sm',
                 weight: 'bold',
                 color: '#374151',
                 margin: projectTitle ? 'sm' : undefined,
             },
-            {
-                type: 'box',
-                layout: 'horizontal',
-                margin: 'sm',
-                spacing: 'sm',
-                contents: [
+            ...(timelineTasks.length > 0
+                ? [
                     {
-                        type: 'box',
-                        layout: 'vertical',
-                        width: '96px',
-                        contents: [{ type: 'text', text: 'เริ่ม/สิ้น', size: 'xs', color: '#6B7280' }],
+                        type: 'box' as const,
+                        layout: 'horizontal' as const,
+                        margin: 'md' as const,
+                        spacing: 'sm' as const,
+                        contents: [
+                            {
+                                type: 'box' as const,
+                                layout: 'vertical' as const,
+                                width: '112px',
+                                contents: [
+                                    { type: 'text' as const, text: 'กำหนด', size: 'xs' as const, color: '#6B7280' },
+                                ],
+                            },
+                            {
+                                type: 'box' as const,
+                                layout: 'horizontal' as const,
+                                flex: 1,
+                                spacing: 'sm' as const,
+                                contents: timelineDays.map((day) => ({
+                                    type: 'box' as const,
+                                    layout: 'vertical' as const,
+                                    flex: 1,
+                                    alignItems: 'center' as const,
+                                    contents: [
+                                        {
+                                            type: 'text' as const,
+                                            text: day.label,
+                                            size: 'xs' as const,
+                                            color: '#6B7280',
+                                            align: 'center' as const,
+                                        },
+                                        {
+                                            type: 'text' as const,
+                                            text: day.dayLabel,
+                                            size: 'xs' as const,
+                                            color: isSameDay(day.date, today) ? '#DC2626' : '#374151',
+                                            weight: isSameDay(day.date, today) ? 'bold' as const : 'regular' as const,
+                                            margin: 'sm' as const,
+                                            align: 'center' as const,
+                                        },
+                                    ],
+                                })),
+                            },
+                        ],
                     },
-                    {
-                        type: 'box',
-                        layout: 'vertical',
-                        width: '20px',
-                        alignItems: 'center',
-                        contents: [{ type: 'text', text: 'ว', size: 'xs', color: '#6B7280' }],
-                    },
-                    { type: 'box', layout: 'vertical', flex: 1, contents: [headerDays] },
-                ],
-            },
-            ...rows,
-        ],
+                    ...timelineTasks.slice(0, 6).map((task, index): FlexBoxNode => {
+                        const tone = getScheduleTone(task, today);
+                        const dueDate = parseDate(task.dueDate);
+                        const startDate = parseDate(task.startDate) || dueDate;
+                        const endDate = parseDate(task.endDate) || dueDate || startDate;
+                        const normalizedStart = startDate && endDate && startDate.getTime() <= endDate.getTime() ? startDate : endDate;
+                        const normalizedEnd = startDate && endDate && startDate.getTime() <= endDate.getTime() ? endDate : startDate;
+
+                        return {
+                            type: 'box' as const,
+                            layout: 'vertical' as const,
+                            margin: index === 0 ? 'sm' as const : 'md' as const,
+                            paddingAll: '8px',
+                            backgroundColor: '#FFFFFF',
+                            cornerRadius: '8px',
+                            contents: [
+                                {
+                                    type: 'text' as const,
+                                    text: task.name,
+                                    size: 'sm' as const,
+                                    weight: 'bold' as const,
+                                    color: '#111827',
+                                    wrap: true,
+                                },
+                                {
+                                    type: 'box' as const,
+                                    layout: 'horizontal' as const,
+                                    margin: 'sm' as const,
+                                    spacing: 'sm' as const,
+                                    contents: [
+                                        {
+                                            type: 'box' as const,
+                                            layout: 'vertical' as const,
+                                            width: '112px',
+                                            contents: [
+                                                {
+                                                    type: 'text' as const,
+                                                    text: formatDateLabel(task.startDate || task.dueDate),
+                                                    size: 'xs' as const,
+                                                    color: '#4B5563',
+                                                },
+                                                {
+                                                    type: 'text' as const,
+                                                    text: formatDateLabel(task.endDate || task.dueDate),
+                                                    size: 'xs' as const,
+                                                    color: '#4B5563',
+                                                    margin: 'sm' as const,
+                                                },
+                                            ],
+                                        },
+                                        {
+                                            type: 'box' as const,
+                                            layout: 'horizontal' as const,
+                                            flex: 1,
+                                            spacing: 'sm' as const,
+                                            contents: timelineDays.map((day) => {
+                                                const inRange = normalizedStart && normalizedEnd
+                                                    ? dayStart(day.date).getTime() >= dayStart(normalizedStart).getTime()
+                                                        && dayStart(day.date).getTime() <= dayStart(normalizedEnd).getTime()
+                                                    : false;
+                                                const isDue = dueDate ? isSameDay(day.date, dueDate) : false;
+                                                return {
+                                                    type: 'box' as const,
+                                                    layout: 'vertical' as const,
+                                                    flex: 1,
+                                                    paddingAll: '2px',
+                                                    borderWidth: isDue ? '1px' : undefined,
+                                                    borderColor: isDue ? tone.border : undefined,
+                                                    backgroundColor: isSameDay(day.date, today) ? '#FFF1F2' : undefined,
+                                                    cornerRadius: '4px',
+                                                    contents: [
+                                                        {
+                                                            type: 'box' as const,
+                                                            layout: 'vertical' as const,
+                                                            height: '18px',
+                                                            backgroundColor: isDue ? tone.text : inRange ? '#1D4ED8' : '#D1D5DB',
+                                                            cornerRadius: '8px',
+                                                            contents: [{ type: 'text' as const, text: ' ', size: 'xs' as const }],
+                                                        },
+                                                    ],
+                                                };
+                                            }),
+                                        },
+                                    ],
+                                },
+                                {
+                                    type: 'box' as const,
+                                    layout: 'horizontal' as const,
+                                    margin: 'sm' as const,
+                                    justifyContent: 'space-between' as const,
+                                    contents: [
+                                        {
+                                            type: 'text' as const,
+                                            text: task.status,
+                                            size: 'xs' as const,
+                                            color: statusColor(task.status),
+                                            weight: 'bold' as const,
+                                        },
+                                        {
+                                            type: 'text' as const,
+                                            text: tone.badge,
+                                            size: 'xs' as const,
+                                            color: tone.text,
+                                            weight: 'bold' as const,
+                                            align: 'end' as const,
+                                        },
+                                    ],
+                                },
+                            ],
+                        };
+                    }),
+                ]
+                : [{
+                    type: 'box' as const,
+                    layout: 'vertical' as const,
+                    paddingAll: '10px',
+                    margin: 'md' as const,
+                    backgroundColor: '#F9FAFB',
+                    cornerRadius: '10px',
+                    contents: [
+                        { type: 'text' as const, text: 'ไม่มีงานที่อยู่ในช่วง 4 วันนี้', size: 'sm' as const, color: '#6B7280', align: 'center' as const },
+                    ],
+                }]),
+            ...(timelineTasks.length > 6
+                ? [{
+                    type: 'text' as const,
+                    text: `+ อีก ${timelineTasks.length - 6} งานในช่วง 4 วันนี้`,
+                    size: 'xs' as const,
+                    color: '#6B7280',
+                    margin: 'sm' as const,
+                    align: 'center' as const,
+                }]
+                : []),
+    ];
+
+    return {
+        type: 'box',
+        layout: 'vertical',
+        margin: 'md',
+        paddingAll: '10px',
+        backgroundColor: '#F3F4F6',
+        cornerRadius: '10px',
+        contents,
     };
 }
 
@@ -332,7 +508,17 @@ function groupTasksByProject(tasks: EmployeeReportPayload['tasks']) {
 }
 
 function buildFlexMessage(payload: EmployeeReportPayload) {
-    const groupedProjectTasks = groupTasksByProject(payload.tasks);
+    const today = dayStart(new Date());
+    const visibleTasks = payload.tasks.filter((task) => !isCompletedStatus(task.status));
+    const timelineTasks = visibleTasks.filter((task) => isTaskWithinFourDayWindow(task, today));
+    const visibleSummary = {
+        total: timelineTasks.length,
+        overdue: timelineTasks.filter((task) => isOverdueTask(task, today)).length,
+        dueSoon: timelineTasks.filter((task) => isDueSoonTask(task, today)).length,
+        inProgress: timelineTasks.filter((task) => isInProgressStatus(task.status)).length,
+        notStarted: timelineTasks.filter((task) => isNotStartedStatus(task.status)).length,
+    };
+    const groupedProjectTasks = groupTasksByProject(timelineTasks);
     const multiProjectMode = groupedProjectTasks.length > 1;
     const generatedAt = new Date().toLocaleString('en-GB', { hour12: false });
     const summaryCards: FlexBoxNode[] = [
@@ -341,7 +527,7 @@ function buildFlexMessage(payload: EmployeeReportPayload) {
             layout: 'vertical',
             contents: [
                 { type: 'text', text: 'เปิด', size: 'xs', color: '#6B7280', align: 'center' },
-                { type: 'text', text: String(payload.summary.total), size: 'lg', weight: 'bold', color: '#111827', align: 'center' },
+                { type: 'text', text: String(visibleSummary.total), size: 'lg', weight: 'bold', color: '#111827', align: 'center' },
             ],
             paddingAll: '8px',
             backgroundColor: '#EFF6FF',
@@ -353,7 +539,7 @@ function buildFlexMessage(payload: EmployeeReportPayload) {
             layout: 'vertical',
             contents: [
                 { type: 'text', text: 'เกินกำหนด', size: 'xs', color: '#6B7280', align: 'center' },
-                { type: 'text', text: String(payload.summary.overdue), size: 'lg', weight: 'bold', color: '#B42318', align: 'center' },
+                { type: 'text', text: String(visibleSummary.overdue), size: 'lg', weight: 'bold', color: '#B42318', align: 'center' },
             ],
             paddingAll: '8px',
             backgroundColor: '#FEF2F2',
@@ -365,7 +551,7 @@ function buildFlexMessage(payload: EmployeeReportPayload) {
             layout: 'vertical',
             contents: [
                 { type: 'text', text: 'ใกล้ครบกำหนด', size: 'xs', color: '#6B7280', align: 'center' },
-                { type: 'text', text: String(payload.summary.dueSoon), size: 'lg', weight: 'bold', color: '#B54708', align: 'center' },
+                { type: 'text', text: String(visibleSummary.dueSoon), size: 'lg', weight: 'bold', color: '#B54708', align: 'center' },
             ],
             paddingAll: '8px',
             backgroundColor: '#FFF7ED',
@@ -374,7 +560,7 @@ function buildFlexMessage(payload: EmployeeReportPayload) {
         },
     ];
 
-    const simpleTaskRows: FlexBoxNode[] = payload.tasks.slice(0, 4).map((task, index) => ({
+    const simpleTaskRows: FlexBoxNode[] = timelineTasks.slice(0, 4).map((task, index) => ({
         type: 'box',
         layout: 'vertical',
         margin: index === 0 ? 'none' : 'sm',
@@ -396,7 +582,7 @@ function buildFlexMessage(payload: EmployeeReportPayload) {
                 margin: 'sm',
                 contents: [
                     { type: 'text', text: task.status, size: 'xs', color: statusColor(task.status), weight: 'bold' },
-                    { type: 'text', text: `ครบกำหนด ${task.dueDate}`, size: 'xs', color: '#6B7280', align: 'end' },
+                    { type: 'text', text: `ครบกำหนด ${formatDateLabel(task.dueDate)}`, size: 'xs', color: '#6B7280', align: 'end' },
                 ],
             },
         ],
@@ -441,7 +627,7 @@ function buildFlexMessage(payload: EmployeeReportPayload) {
         },
         {
             type: 'text',
-            text: `กำลังดำเนินการ ${payload.summary.inProgress} | ยังไม่เริ่ม ${payload.summary.notStarted} | เสร็จสิ้น ${payload.summary.completed}`,
+            text: `กำลังดำเนินการ ${visibleSummary.inProgress} | ยังไม่เริ่ม ${visibleSummary.notStarted}`,
             size: 'xs',
             color: '#4B5563',
             margin: 'md',
@@ -449,7 +635,7 @@ function buildFlexMessage(payload: EmployeeReportPayload) {
         },
     ];
 
-    if (payload.tasks.length > 0) {
+    if (timelineTasks.length > 0) {
         if (payload.template === 'detailed') {
             if (multiProjectMode) {
                 bodyContents.push({
@@ -461,10 +647,10 @@ function buildFlexMessage(payload: EmployeeReportPayload) {
                     margin: 'md',
                 });
                 groupedProjectTasks.slice(0, 3).forEach((group) => {
-                    bodyContents.push(buildTimelineSection(group.tasks, dayStart(new Date()), group.projectName));
+                    bodyContents.push(buildFourDayTimelineSection(group.tasks, today, group.projectName));
                 });
             } else {
-                bodyContents.push(buildTimelineSection(payload.tasks, dayStart(new Date())));
+                bodyContents.push(buildFourDayTimelineSection(timelineTasks, today));
             }
         } else {
             bodyContents.push({
@@ -485,6 +671,18 @@ function buildFlexMessage(payload: EmployeeReportPayload) {
                 contents: simpleTaskRows,
             });
         }
+    } else {
+        bodyContents.push({
+            type: 'box',
+            layout: 'vertical',
+            margin: 'md',
+            paddingAll: '10px',
+            backgroundColor: '#F9FAFB',
+            cornerRadius: '10px',
+            contents: [
+                { type: 'text', text: 'ไม่มีงานค้างที่ต้องติดตามในช่วงเวลานี้', size: 'sm', color: '#6B7280', align: 'center' },
+            ],
+        });
     }
 
     return {
