@@ -3,7 +3,7 @@ import {
     query, where, onSnapshot, setDoc, deleteField
 } from 'firebase/firestore';
 import { db } from './firebase';
-import { Project, Task, TeamMember, SubTask, Attachment, ActivityEntry, NotificationSettings, SystemUserAccount } from '@/types/construction';
+import { Project, Task, TeamMember, SubTask, Attachment, ActivityEntry, NotificationSettings, SystemUserAccount, ProjectDocument } from '@/types/construction';
 
 function omitUndefinedFields(data: Record<string, unknown>): Record<string, unknown> {
     const payload: Record<string, unknown> = {};
@@ -46,6 +46,27 @@ export function subscribeProjects(callback: (projects: Project[]) => void) {
     return onSnapshot(collection(db, 'projects'), (snapshot) => {
         const projects = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Project));
         callback(projects);
+    });
+}
+
+// ========== PROJECT DOCUMENTS ==========
+
+export async function createProjectDocument(projectDocument: Omit<ProjectDocument, 'id'>): Promise<string> {
+    const docRef = await addDoc(collection(db, 'projectDocuments'), omitUndefinedFields(projectDocument as Record<string, unknown>));
+    return docRef.id;
+}
+
+export async function deleteProjectDocumentDoc(id: string): Promise<void> {
+    await deleteDoc(doc(db, 'projectDocuments', id));
+}
+
+export function subscribeProjectDocumentsForProject(projectId: string, callback: (documents: ProjectDocument[]) => void) {
+    const q = query(collection(db, 'projectDocuments'), where('projectId', '==', projectId));
+    return onSnapshot(q, (snapshot) => {
+        const documents = snapshot.docs
+            .map(docItem => ({ ...docItem.data(), id: docItem.id } as ProjectDocument))
+            .sort((a, b) => new Date(b.uploadedAt || 0).getTime() - new Date(a.uploadedAt || 0).getTime());
+        callback(documents);
     });
 }
 

@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, useMemo, useCallback, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Project, Task } from '@/types/construction';
+import { Project, Task, ProjectDocument } from '@/types/construction';
 import { format, addDays, isPast, addDays as addD } from 'date-fns';
 import {
   Search, Plus, ChevronDown, LayoutGrid,
@@ -103,6 +103,7 @@ export default function TaskBoardPage() {
     deleteWorkspace,
     notificationSettings,
     taskUpdates, addTaskUpdate,
+    projectDocuments, addProjectDocument, deleteProjectDocument,
     handleAddItem, handleDeleteItem,
     handleUpdateTaskName, handleUpdateTaskOwners,
     handleUpdateTaskStatus, handleUpdateTaskTimeline,
@@ -137,10 +138,13 @@ export default function TaskBoardPage() {
   const [hideCompletedTasks, setHideCompletedTasks] = useState(true);
   const [collapsedCategories, setCollapsedCategories] = useState<Record<string, boolean>>({});
   const [showProjectSettings, setShowProjectSettings] = useState(false);
+  const [showProjectDocuments, setShowProjectDocuments] = useState(false);
   const [projectNameDraft, setProjectNameDraft] = useState('');
   const [projectStatusDraft, setProjectStatusDraft] = useState<Project['status']>('planning');
   const [savingProjectSettings, setSavingProjectSettings] = useState(false);
   const [deletingProject, setDeletingProject] = useState(false);
+  const [isUploadingProjectDocument, setIsUploadingProjectDocument] = useState(false);
+  const [deletingProjectDocumentId, setDeletingProjectDocumentId] = useState<string | null>(null);
 
   // Search & Filter state
   const [searchQuery, setSearchQuery] = useState("");
@@ -151,8 +155,13 @@ export default function TaskBoardPage() {
   const [sortBy, setSortBy] = useState<string>("default"); // default, priority, dueDate, progress
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const projectDocumentInputRef = useRef<HTMLInputElement>(null);
 
   const activeProject = projects.find(p => p.id === activeProjectId);
+  const activeProjectDocuments = useMemo(
+    () => (activeProjectId ? (projectDocuments[activeProjectId] || []) : []),
+    [activeProjectId, projectDocuments]
+  );
   const projectTasks = useMemo(
     () => tasks.filter((task) => task.projectId === activeProjectId),
     [tasks, activeProjectId]
@@ -165,6 +174,7 @@ export default function TaskBoardPage() {
       setProjectNameDraft('');
       setProjectStatusDraft('planning');
       setShowProjectSettings(false);
+      setShowProjectDocuments(false);
       return;
     }
     setProjectNameDraft(activeProjectName);
@@ -405,6 +415,63 @@ export default function TaskBoardPage() {
   }, [projectTasks, assignmentByTaskId]);
 
   const hasActiveFilters = filterStatus !== 'all' || filterPriority !== 'all' || filterOwner !== 'all' || searchQuery.trim() !== '';
+
+  const formatDocumentFileSize = useCallback((size: number) => {
+    if (!Number.isFinite(size) || size <= 0) return '-';
+    if (size < 1024) return `${size} B`;
+    if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`;
+    return `${(size / (1024 * 1024)).toFixed(1)} MB`;
+  }, []);
+
+  const getProjectDocumentHref = useCallback((document: ProjectDocument) => {
+    return document.url || document.data || '';
+  }, []);
+
+  const handleProjectDocumentUploadClick = useCallback(() => {
+    projectDocumentInputRef.current?.click();
+  }, []);
+
+  const handleProjectDocumentUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !activeProject) {
+      e.target.value = '';
+      return;
+    }
+
+    try {
+      setIsUploadingProjectDocument(true);
+      await addProjectDocument(activeProject.id, file);
+      void modal.success(`อัปโหลดเอกสาร "${file.name}" สำเร็จ`);
+    } catch (error) {
+      console.error('Failed to upload project document:', error);
+      void modal.error('ไม่สามารถอัปโหลดเอกสารโครงการได้ โปรดลองอีกครั้ง');
+    } finally {
+      setIsUploadingProjectDocument(false);
+      e.target.value = '';
+    }
+  }, [activeProject, addProjectDocument, modal]);
+
+  const handleDeleteProjectDocument = useCallback(async (documentItem: ProjectDocument) => {
+    if (!activeProject || deletingProjectDocumentId) return;
+
+    const confirmed = await modal.confirm({
+      title: 'ลบเอกสารโครงการ',
+      message: `ต้องการลบเอกสาร "${documentItem.name}" หรือไม่?`,
+      description: 'เอกสารนี้จะถูกลบออกจากคลังเอกสารของโครงการ',
+      confirmLabel: 'ลบเอกสาร',
+    });
+    if (!confirmed) return;
+
+    try {
+      setDeletingProjectDocumentId(documentItem.id);
+      await deleteProjectDocument(activeProject.id, documentItem.id);
+    } catch (error) {
+      console.error('Failed to delete project document:', error);
+      void modal.error('ไม่สามารถลบเอกสารโครงการได้ โปรดลองอีกครั้ง');
+    } finally {
+      setDeletingProjectDocumentId(null);
+    }
+  }, [activeProject, deleteProjectDocument, deletingProjectDocumentId, modal]);
 
   // Group filtered tasks by category (and include manually added empty categories when no active filters)
   const allGroups = useMemo(() => {
@@ -979,6 +1046,14 @@ export default function TaskBoardPage() {
               >
                 {showProjectSettings ? 'ปิดการตั้งค่าโครงการ' : 'แก้ไขการตั้งค่าโครงการ'}
               </button>
+              <button
+                type="button"
+                onClick={() => setShowProjectDocuments((prev) => !prev)}
+                className="px-2.5 py-1 rounded-md border border-[#d0d4e4] bg-white text-[#323338] text-[12px] font-medium hover:bg-[#f5f6f8] transition-colors"
+                title={showProjectDocuments ? 'ซ่อนคลังเอกสารโครงการ' : 'เปิดคลังเอกสารโครงการ'}
+              >
+                {showProjectDocuments ? 'ซ่อนคลังเอกสาร' : 'คลังเอกสาร'}
+              </button>
             </div>
           )}
           {activeProject && showProjectSettings && (
@@ -1032,6 +1107,82 @@ export default function TaskBoardPage() {
                 >
                   {savingProjectSettings ? 'กำลังบันทึก...' : 'บันทึกโครงการ'}
                 </button>
+              </div>
+            </div>
+          )}
+          {activeProject && showProjectDocuments && (
+            <div className="mt-2 max-w-[680px] rounded-xl border border-[#d0d4e4] bg-[#f8fafc] p-3 flex flex-col gap-3">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <h3 className="text-[14px] font-semibold text-[#233548]">คลังเอกสารโครงการ</h3>
+                  <p className="mt-1 text-[12px] text-[#5f6f82]">
+                    จัดเก็บเอกสารอ้างอิง สัญญา แบบไฟล์ และเอกสารประกอบที่เกี่ยวข้องกับโครงการนี้
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    ref={projectDocumentInputRef}
+                    type="file"
+                    onChange={handleProjectDocumentUpload}
+                    className="hidden"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleProjectDocumentUploadClick}
+                    disabled={isUploadingProjectDocument}
+                    className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-[#0073ea] bg-[#0073ea] text-white text-[12px] font-medium hover:bg-[#0063c7] disabled:opacity-60 disabled:cursor-not-allowed"
+                  >
+                    <Upload className="w-4 h-4" />
+                    {isUploadingProjectDocument ? 'กำลังอัปโหลด...' : 'อัปโหลดเอกสาร'}
+                  </button>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                {activeProjectDocuments.length === 0 ? (
+                  <div className="rounded-lg border border-dashed border-[#c7d1df] bg-white px-4 py-6 text-center text-[12px] text-[#676879]">
+                    ยังไม่มีเอกสารในคลังของโครงการนี้
+                  </div>
+                ) : (
+                  activeProjectDocuments.map((documentItem) => {
+                    const href = getProjectDocumentHref(documentItem);
+                    const deletingThisDocument = deletingProjectDocumentId === documentItem.id;
+
+                    return (
+                      <div
+                        key={documentItem.id}
+                        className="flex flex-col gap-3 rounded-lg border border-[#d8e0eb] bg-white px-3 py-3 sm:flex-row sm:items-center sm:justify-between"
+                      >
+                        <div className="min-w-0">
+                          <div className="truncate text-[13px] font-semibold text-[#233548]">{documentItem.name}</div>
+                          <div className="mt-1 text-[11px] text-[#6b7280]">
+                            {formatDocumentFileSize(documentItem.size)} • โดย {documentItem.uploadedBy || '-'} • {format(new Date(documentItem.uploadedAt), 'dd/MM/yyyy HH:mm')}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <a
+                            href={href || '#'}
+                            target="_blank"
+                            rel="noreferrer"
+                            className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border text-[12px] font-medium ${href ? 'border-[#cfd6e4] bg-white text-[#32455a] hover:bg-[#eef2f8]' : 'border-[#e5e7eb] bg-[#f5f6f8] text-[#9ca3af] pointer-events-none'}`}
+                          >
+                            <Download className="w-4 h-4" />
+                            เปิดไฟล์
+                          </a>
+                          <button
+                            type="button"
+                            onClick={() => void handleDeleteProjectDocument(documentItem)}
+                            disabled={deletingThisDocument}
+                            className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-[#f2c7cf] bg-[#fff5f6] text-[#c62846] text-[12px] font-medium hover:bg-[#ffe7ec] disabled:opacity-60 disabled:cursor-not-allowed"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                            {deletingThisDocument ? 'กำลังลบ...' : 'ลบ'}
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
               </div>
             </div>
           )}

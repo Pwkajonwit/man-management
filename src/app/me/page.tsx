@@ -12,6 +12,8 @@ export default function MePage() {
         teamMembers,
         currentUserName,
         loading,
+        dataSource,
+        projectDocuments,
         handleUpdateTaskStatus,
     } = useAppContext();
 
@@ -23,6 +25,8 @@ export default function MePage() {
             projects={projects}
             teamMembers={teamMembers}
             currentUserName={currentUserName}
+            dataSource={dataSource}
+            projectDocumentsByProjectId={projectDocuments}
             onStatusChange={handleUpdateTaskStatus}
         />
     );

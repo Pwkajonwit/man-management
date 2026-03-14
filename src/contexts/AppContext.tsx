@@ -1,17 +1,20 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode, useRef } from 'react';
-import { Project, Task, TeamMember, SubTask, Attachment, ActivityEntry, NotificationSettings } from '@/types/construction';
+import { Project, Task, TeamMember, SubTask, Attachment, ActivityEntry, NotificationSettings, ProjectDocument } from '@/types/construction';
 import { format, addDays } from 'date-fns';
 import { useAuth } from '@/contexts/AuthContext';
-import { deleteStorageFile, uploadTaskAttachmentFile } from '@/lib/storage';
+import { deleteStorageFile, uploadProjectDocumentFile, uploadTaskAttachmentFile } from '@/lib/storage';
 import {
     subscribeProjects, subscribeTasks, subscribeTeamMembers,
+    subscribeProjectDocumentsForProject,
     subscribeTaskUpdates,
     subscribeSubTasksForTask, subscribeAttachmentsForTask, subscribeActivityLogForTask,
     createProject as fbCreateProject,
     updateProject as fbUpdateProject,
     deleteProject as fbDeleteProject,
+    createProjectDocument as fbCreateProjectDocument,
+    deleteProjectDocumentDoc,
     createTask as fbCreateTask, updateTask as fbUpdateTask, deleteTaskDoc,
     createSubTask as fbCreateSubTask, updateSubTask as fbUpdateSubTask, deleteSubTaskDoc,
     createAttachment as fbCreateAttachment, deleteAttachmentDoc,
@@ -66,6 +69,11 @@ interface AppContextType {
     attachments: Record<string, Attachment[]>;
     addAttachment: (taskId: string, file: File) => Promise<void>;
     deleteAttachment: (taskId: string, attachmentId: string) => void;
+
+    // Project documents
+    projectDocuments: Record<string, ProjectDocument[]>;
+    addProjectDocument: (projectId: string, file: File) => Promise<void>;
+    deleteProjectDocument: (projectId: string, documentId: string) => Promise<void>;
 
     // Per-task subscription (subscribe when task detail opens, unsubscribe when it closes)
     subscribeTaskDetails: (taskId: string) => () => void;
@@ -186,6 +194,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const [taskUpdates, setTaskUpdates] = useState<Record<string, TaskUpdate[]>>({});
     const [subtasks, setSubtasks] = useState<Record<string, SubTask[]>>({});
     const [attachments, setAttachments] = useState<Record<string, Attachment[]>>({});
+    const [projectDocuments, setProjectDocuments] = useState<Record<string, ProjectDocument[]>>({});
     const [activityLog, setActivityLog] = useState<Record<string, ActivityEntry[]>>({});
 
     const debouncedUpdate = useDebouncedUpdate();
@@ -306,6 +315,24 @@ export function AppProvider({ children }: { children: ReactNode }) {
         };
     }, [dataSource]);
 
+    useEffect(() => {
+        if (!activeProjectId || dataSource !== 'firebase') return;
+
+        const projectId = activeProjectId;
+        const unsubscribe = subscribeProjectDocumentsForProject(projectId, (documents) => {
+            setProjectDocuments((prev) => ({ ...prev, [projectId]: documents }));
+        });
+
+        return () => {
+            unsubscribe();
+            setProjectDocuments((prev) => {
+                const next = { ...prev };
+                delete next[projectId];
+                return next;
+            });
+        };
+    }, [activeProjectId, dataSource]);
+
     // Helper: log activity to Firestore
     const logActivity = useCallback(async (taskId: string, action: string, field?: string, oldValue?: string, newValue?: string) => {
         const entry: Omit<ActivityEntry, 'id'> = {
@@ -409,6 +436,68 @@ export function AppProvider({ children }: { children: ReactNode }) {
         }
         if (att) logActivity(taskId, 'file_removed', 'attachment', att.name, undefined);
     }, [dataSource, attachments, logActivity]);
+
+    const addProjectDocument = useCallback(async (projectId: string, file: File) => {
+        const baseDocument = {
+            projectId,
+            name: file.name,
+            type: file.type,
+            size: file.size,
+            uploadedAt: new Date().toISOString(),
+            uploadedBy: currentUserName,
+        };
+
+        if (dataSource === 'firebase') {
+            const uploaded = await uploadProjectDocumentFile(projectId, file);
+            await fbCreateProjectDocument({
+                ...baseDocument,
+                url: uploaded.url,
+                storagePath: uploaded.storagePath,
+            });
+            return;
+        }
+
+        const dataUrl = await new Promise<string>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result as string);
+            reader.onerror = reject;
+            reader.readAsDataURL(file);
+        });
+
+        setProjectDocuments((prev) => ({
+            ...prev,
+            [projectId]: [
+                {
+                    ...baseDocument,
+                    id: `pdoc-${Date.now()}`,
+                    data: dataUrl,
+                },
+                ...(prev[projectId] || []),
+            ],
+        }));
+    }, [currentUserName, dataSource]);
+
+    const deleteProjectDocument = useCallback(async (projectId: string, documentId: string) => {
+        const targetDocument = (projectDocuments[projectId] || []).find((document) => document.id === documentId);
+        if (!targetDocument) return;
+
+        if (dataSource === 'firebase') {
+            if (targetDocument.storagePath) {
+                try {
+                    await deleteStorageFile(targetDocument.storagePath);
+                } catch (error) {
+                    console.error('Failed to delete project file from storage:', error);
+                }
+            }
+            await deleteProjectDocumentDoc(documentId);
+            return;
+        }
+
+        setProjectDocuments((prev) => ({
+            ...prev,
+            [projectId]: (prev[projectId] || []).filter((document) => document.id !== documentId),
+        }));
+    }, [dataSource, projectDocuments]);
 
     const updateNotificationSettings = useCallback(async (patch: Partial<NotificationSettings>) => {
         setNotificationSettings(prev => ({ ...prev, ...patch }));
@@ -528,6 +617,19 @@ export function AppProvider({ children }: { children: ReactNode }) {
         const nextActiveProjectId = remainingProjects[0]?.id || null;
 
         if (dataSource === 'firebase') {
+            const docsToDelete = projectDocuments[projectId] || [];
+            if (docsToDelete.length > 0) {
+                await Promise.all(docsToDelete.map(async (projectDocument) => {
+                    if (projectDocument.storagePath) {
+                        try {
+                            await deleteStorageFile(projectDocument.storagePath);
+                        } catch (error) {
+                            console.error('Failed to delete project document from storage:', error);
+                        }
+                    }
+                    await deleteProjectDocumentDoc(projectDocument.id);
+                }));
+            }
             const taskIds = tasks.filter(t => t.projectId === projectId).map(t => t.id);
             if (taskIds.length > 0) {
                 await Promise.all(taskIds.map(taskId => deleteTaskDoc(taskId)));
@@ -541,7 +643,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         if (activeProjectId === projectId) {
             setActiveProjectId(nextActiveProjectId);
         }
-    }, [activeProjectId, dataSource, projects, tasks]);
+    }, [activeProjectId, dataSource, projectDocuments, projects, tasks]);
 
     // ===== Task handlers =====
     const handleAddItem = useCallback(async (category: string) => {
@@ -798,6 +900,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
             deleteWorkspace,
             subtasks, addSubTask, toggleSubTask, deleteSubTask,
             attachments, addAttachment, deleteAttachment,
+            projectDocuments, addProjectDocument, deleteProjectDocument,
             activityLog,
             subscribeTaskDetails,
             currentUserName,

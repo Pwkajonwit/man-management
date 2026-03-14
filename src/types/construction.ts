@@ -18,6 +18,19 @@ export interface Project {
     googleSheetUrl?: string;
 }
 
+export interface ProjectDocument {
+    id: string;
+    projectId: string;
+    name: string;
+    type: string;
+    size: number;
+    data?: string; // base64 (legacy/local mode)
+    url?: string; // downloadable URL from Firebase Storage
+    storagePath?: string; // Firebase Storage object path
+    uploadedAt: string;
+    uploadedBy: string;
+}
+
 export interface Task {
     id: string;
     projectId: string;

@@ -1,13 +1,14 @@
 'use client';
 
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { addDays, format, isPast } from 'date-fns';
-import { AlertTriangle, CalendarDays, CheckCircle2, Clock3, ListTodo, UserRound } from 'lucide-react';
-import { Project, Task, TeamMember } from '@/types/construction';
+import { AlertTriangle, CalendarDays, CheckCircle2, ChevronDown, Clock3, Download, FileText, ListTodo, UserRound } from 'lucide-react';
+import { Project, Task, TeamMember, ProjectDocument } from '@/types/construction';
 import { getStatusColor, getStatusLabel } from '@/utils/statusUtils';
 import { findCurrentTeamMember, getTaskOwnerNames as resolveTaskOwnerNames, isTaskAssignedToCurrentUser } from '@/utils/taskOwnerUtils';
 import { useAuth } from '@/contexts/AuthContext';
+import { subscribeProjectDocumentsForProject } from '@/lib/firestore';
 
 type FilterTab = 'all' | 'soon' | 'overdue' | 'done';
 
@@ -16,6 +17,8 @@ interface MobileMyTasksViewProps {
     projects: Project[];
     teamMembers: TeamMember[];
     currentUserName: string;
+    dataSource: 'firebase' | 'local';
+    projectDocumentsByProjectId: Record<string, ProjectDocument[]>;
     onStatusChange: (taskId: string, newStatus: Task['status']) => void;
 }
 
@@ -88,11 +91,17 @@ export default function MobileMyTasksView({
     projects,
     teamMembers,
     currentUserName,
+    dataSource,
+    projectDocumentsByProjectId,
     onStatusChange,
 }: MobileMyTasksViewProps) {
     const [activeTab, setActiveTab] = useState<FilterTab>('all');
     const [displayLimit, setDisplayLimit] = useState(20);
     const [showProfileCard, setShowProfileCard] = useState(false);
+    const [showDocumentsPanel, setShowDocumentsPanel] = useState(false);
+    const [showDocumentProjectPicker, setShowDocumentProjectPicker] = useState(false);
+    const [selectedDocumentProjectId, setSelectedDocumentProjectId] = useState('');
+    const [selectedProjectDocuments, setSelectedProjectDocuments] = useState<ProjectDocument[]>([]);
 
     const handleTabChange = (tab: FilterTab) => {
         setActiveTab(tab);
@@ -125,9 +134,57 @@ export default function MobileMyTasksView({
         )
     ), [projects]);
 
+    const ongoingProjects = useMemo(() => (
+        projects.filter((project) => project.status === 'in-progress')
+    ), [projects]);
+
     const reportTasks = useMemo(() => (
         tasks.filter((task) => !completedProjectIds.has(task.projectId))
     ), [tasks, completedProjectIds]);
+
+    useEffect(() => {
+        if (ongoingProjects.length === 0) {
+            setSelectedDocumentProjectId('');
+            return;
+        }
+
+        setSelectedDocumentProjectId((prev) => {
+            if (prev && ongoingProjects.some((project) => project.id === prev)) return prev;
+            return ongoingProjects[0].id;
+        });
+    }, [ongoingProjects]);
+
+    useEffect(() => {
+        if (!selectedDocumentProjectId) {
+            setSelectedProjectDocuments([]);
+            return;
+        }
+
+        if (dataSource !== 'firebase') {
+            setSelectedProjectDocuments(projectDocumentsByProjectId[selectedDocumentProjectId] || []);
+            return;
+        }
+
+        const unsubscribe = subscribeProjectDocumentsForProject(selectedDocumentProjectId, (documents) => {
+            setSelectedProjectDocuments(documents);
+        });
+
+        return () => unsubscribe();
+    }, [dataSource, projectDocumentsByProjectId, selectedDocumentProjectId]);
+
+    const selectedDocumentProject = ongoingProjects.find((project) => project.id === selectedDocumentProjectId) || null;
+
+    const formatProjectOptionLabel = (project: Project): string => {
+        const projectCode = (project.code || '').trim();
+        return projectCode ? `${projectCode} - ${project.name}` : project.name;
+    };
+
+    const formatFileSize = (size: number): string => {
+        if (!Number.isFinite(size) || size <= 0) return '-';
+        if (size < 1024) return `${size} B`;
+        if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`;
+        return `${(size / (1024 * 1024)).toFixed(1)} MB`;
+    };
 
     const reportOwnerNamesByTaskId = useMemo(() => {
         const map = new Map<string, string[]>();
@@ -283,6 +340,140 @@ export default function MobileMyTasksView({
                         <div className="text-[10px] uppercase tracking-wider text-[#6e7f92] font-semibold">เสร็จสิ้น</div>
                         <div className="text-[18px] font-black text-[#1f4f7a] mt-1">{stats.done}</div>
                     </button>
+                </div>
+
+                <div className="bg-white rounded-xl border border-[#cfd9e6] p-3 shadow-[0_2px_12px_rgba(30,56,86,0.06)]">
+                    <button
+                        type="button"
+                        onClick={() => setShowDocumentsPanel((prev) => !prev)}
+                        className="w-full flex items-center justify-between gap-3"
+                    >
+                        <div className="flex items-center gap-2 text-left">
+                            <div className="w-10 h-10 rounded-xl bg-[#eef5ff] text-[#2b5f95] flex items-center justify-center">
+                                <FileText className="w-5 h-5" />
+                            </div>
+                            <div>
+                                <p className="text-[13px] font-semibold text-[#1f3147]">เอกสารโครงการ</p>
+                                <p className="text-[11px] text-[#5f7084]">
+                                    เลือกดูเอกสารของโครงการที่กำลังดำเนินการ
+                                </p>
+                            </div>
+                        </div>
+                        <span className="text-[11px] font-semibold text-[#2b5f95]">
+                            {showDocumentsPanel ? 'ซ่อน' : 'แสดง'}
+                        </span>
+                    </button>
+
+                    {showDocumentsPanel && (
+                        <div className="mt-3 border-t border-[#e4ebf4] pt-3 space-y-3">
+                            {ongoingProjects.length === 0 ? (
+                                <div className="rounded-lg border border-dashed border-[#d7e0ea] bg-[#f8fbff] px-3 py-4 text-center text-[12px] text-[#5f7084]">
+                                    ไม่มีโครงการที่กำลังดำเนินการ
+                                </div>
+                            ) : (
+                                <>
+                                    <div>
+                                        <label className="text-[11px] font-semibold uppercase tracking-wide text-[#6c7f93]">
+                                            เลือกโครงการ
+                                        </label>
+                                        <div className="relative mt-1">
+                                            <button
+                                                type="button"
+                                                onClick={() => setShowDocumentProjectPicker((prev) => !prev)}
+                                                className="w-full flex items-center justify-between gap-2 rounded-lg border border-[#cfd9e6] bg-white px-3 py-2 text-[13px] text-[#1f3147] outline-none"
+                                            >
+                                                <span className="min-w-0 truncate text-left">
+                                                    {selectedDocumentProject ? formatProjectOptionLabel(selectedDocumentProject) : 'เลือกโครงการ'}
+                                                </span>
+                                                <ChevronDown className={`w-4 h-4 shrink-0 text-[#5f7084] transition-transform ${showDocumentProjectPicker ? 'rotate-180' : ''}`} />
+                                            </button>
+
+                                            {showDocumentProjectPicker && (
+                                                <>
+                                                    <button
+                                                        type="button"
+                                                        aria-label="ปิดรายการโครงการ"
+                                                        onClick={() => setShowDocumentProjectPicker(false)}
+                                                        className="fixed inset-0 z-10 cursor-default"
+                                                    />
+                                                    <div className="absolute left-0 right-0 z-20 mt-2 max-h-60 overflow-auto rounded-xl border border-[#cfd9e6] bg-white py-1 shadow-[0_12px_28px_rgba(12,34,58,0.16)]">
+                                                        {ongoingProjects.map((project) => {
+                                                            const isSelected = project.id === selectedDocumentProjectId;
+                                                            return (
+                                                                <button
+                                                                    key={project.id}
+                                                                    type="button"
+                                                                    onClick={() => {
+                                                                        setSelectedDocumentProjectId(project.id);
+                                                                        setShowDocumentProjectPicker(false);
+                                                                    }}
+                                                                    className={`w-full px-3 py-2 text-left text-[13px] transition-colors ${isSelected ? 'bg-[#e9f4ff] text-[#1f4f7a]' : 'text-[#1f3147] hover:bg-[#f4f8fc]'}`}
+                                                                >
+                                                                    <div className="break-words [overflow-wrap:anywhere]">
+                                                                        {formatProjectOptionLabel(project)}
+                                                                    </div>
+                                                                </button>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                </>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    <div className="space-y-2">
+                                        <div className="text-[11px] text-[#5f7084]">
+                                            {selectedDocumentProject ? `เอกสารของ ${selectedDocumentProject.name}` : 'รายการเอกสาร'}
+                                        </div>
+
+                                        {selectedProjectDocuments.length === 0 ? (
+                                            <div className="rounded-lg border border-dashed border-[#d7e0ea] bg-[#f8fbff] px-3 py-4 text-center text-[12px] text-[#5f7084]">
+                                                ยังไม่มีเอกสารในโครงการนี้
+                                            </div>
+                                        ) : (
+                                            selectedProjectDocuments.map((document) => {
+                                                const href = document.url || document.data || '';
+                                                return (
+                                                    <div
+                                                        key={document.id}
+                                                        className="rounded-lg border border-[#d7e0ea] bg-[#f8fbff] px-3 py-2.5"
+                                                    >
+                                                        <div className="flex items-start justify-between gap-3">
+                                                            <div className="min-w-0 flex-1">
+                                                                <p className="text-[13px] font-semibold text-[#1f3147] break-words [overflow-wrap:anywhere]">
+                                                                    {document.name}
+                                                                </p>
+                                                                <p className="mt-1 text-[11px] text-[#5f7084]">
+                                                                    {formatFileSize(document.size)} • {format(new Date(document.uploadedAt), 'dd/MM/yyyy HH:mm')}
+                                                                </p>
+                                                            </div>
+                                                            {href ? (
+                                                                <a
+                                                                    href={href}
+                                                                    target="_blank"
+                                                                    rel="noreferrer"
+                                                                    download={document.name}
+                                                                    className="shrink-0 inline-flex items-center gap-1.5 rounded-md border border-[#cfd8e5] bg-white px-2.5 py-1.5 text-[11px] font-semibold text-[#24425f]"
+                                                                >
+                                                                    <Download className="w-3.5 h-3.5" />
+                                                                    เปิด
+                                                                </a>
+                                                            ) : (
+                                                                <span className="shrink-0 inline-flex items-center gap-1.5 rounded-md border border-[#e3e8ef] bg-[#f3f5f8] px-2.5 py-1.5 text-[11px] font-semibold text-[#9aa6b2]">
+                                                                    <Download className="w-3.5 h-3.5" />
+                                                                    ไม่มีไฟล์
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })
+                                        )}
+                                    </div>
+                                </>
+                            )}
+                        </div>
+                    )}
                 </div>
 
                 <div className="space-y-3 pb-6">
