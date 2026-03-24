@@ -120,6 +120,8 @@ export default function TaskBoardPage() {
   const [statusDropdownAnchor, setStatusDropdownAnchor] = useState<{ x: number; y: number } | null>(null);
   const [activePriorityDropdown, setActivePriorityDropdown] = useState<string | null>(null);
   const [priorityDropdownAnchor, setPriorityDropdownAnchor] = useState<{ x: number; y: number } | null>(null);
+  const [ownerSelectionDraft, setOwnerSelectionDraft] = useState<string[]>([]);
+  const [isSavingOwnerSelection, setIsSavingOwnerSelection] = useState(false);
 
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [taskUpdateText, setTaskUpdateText] = useState("");
@@ -140,6 +142,7 @@ export default function TaskBoardPage() {
   const [showProjectSettings, setShowProjectSettings] = useState(false);
   const [showProjectDocuments, setShowProjectDocuments] = useState(false);
   const [projectNameDraft, setProjectNameDraft] = useState('');
+  const [projectCodeDraft, setProjectCodeDraft] = useState('');
   const [projectStatusDraft, setProjectStatusDraft] = useState<Project['status']>('planning');
   const [savingProjectSettings, setSavingProjectSettings] = useState(false);
   const [deletingProject, setDeletingProject] = useState(false);
@@ -167,19 +170,22 @@ export default function TaskBoardPage() {
     [tasks, activeProjectId]
   );
   const activeProjectName = activeProject?.name || '';
+  const activeProjectCode = activeProject?.code || '';
   const activeProjectStatus = activeProject?.status || 'planning';
 
   useEffect(() => {
     if (!activeProjectId) {
       setProjectNameDraft('');
+      setProjectCodeDraft('');
       setProjectStatusDraft('planning');
       setShowProjectSettings(false);
       setShowProjectDocuments(false);
       return;
     }
     setProjectNameDraft(activeProjectName);
+    setProjectCodeDraft(activeProjectCode);
     setProjectStatusDraft(activeProjectStatus);
-  }, [activeProjectId, activeProjectName, activeProjectStatus]);
+  }, [activeProjectCode, activeProjectId, activeProjectName, activeProjectStatus]);
 
   useEffect(() => {
     setSelectedLineReportType((notificationSettings.lineReportType || 'project-summary') as LineReportType);
@@ -189,15 +195,17 @@ export default function TaskBoardPage() {
     if (!activeProject) return false;
     return (
       projectNameDraft.trim() !== activeProject.name ||
+      projectCodeDraft.trim() !== (activeProject.code || '') ||
       projectStatusDraft !== activeProject.status
     );
-  }, [activeProject, projectNameDraft, projectStatusDraft]);
+  }, [activeProject, projectCodeDraft, projectNameDraft, projectStatusDraft]);
 
   const handleSaveProjectSettings = useCallback(async () => {
     if (!activeProject) return;
     const trimmedName = projectNameDraft.trim();
+    const trimmedCode = projectCodeDraft.trim();
     if (!trimmedName) {
-      void modal.alert('ต้องระบุชื่อโครงการ', { variant: 'warning' });
+      void modal.alert('???????????????????', { variant: 'warning' });
       return;
     }
     try {
@@ -205,17 +213,17 @@ export default function TaskBoardPage() {
       await updateWorkspace(
         activeProject.id,
         trimmedName,
-        activeProject.code,
+        trimmedCode,
         projectStatusDraft
       );
       setShowProjectSettings(false);
     } catch (error) {
       console.error('Failed to update project settings:', error);
-      void modal.error('ไม่สามารถอัปเดตการตั้งค่าโครงการได้ โปรดลองอีกครั้ง');
+      void modal.error('??????????????????????????????????? ???????????????');
     } finally {
       setSavingProjectSettings(false);
     }
-  }, [activeProject, modal, projectNameDraft, projectStatusDraft, updateWorkspace]);
+  }, [activeProject, modal, projectCodeDraft, projectNameDraft, projectStatusDraft, updateWorkspace]);
 
   const handleDeleteProject = useCallback(async () => {
     if (!activeProject || deletingProject) return;
@@ -571,18 +579,30 @@ export default function TaskBoardPage() {
     setTaskUpdateText("");
   };
 
-  const toggleOwnerDropdown = (taskId: string, anchorEl: HTMLDivElement) => {
-    if (activeOwnerDropdown === taskId) {
-      setActiveOwnerDropdown(null);
-      setOwnerDropdownAnchor(null);
-      return;
-    }
+  const closeAllDropdowns = useCallback(() => {
+    setActiveOwnerDropdown(null);
+    setOwnerDropdownAnchor(null);
     setActiveCrewDropdown(null);
     setCrewDropdownAnchor(null);
     setActiveStatusDropdown(null);
     setStatusDropdownAnchor(null);
     setActivePriorityDropdown(null);
     setPriorityDropdownAnchor(null);
+    setOwnerSelectionDraft([]);
+    setIsSavingOwnerSelection(false);
+  }, []);
+
+  const toggleOwnerDropdown = (taskId: string, anchorEl: HTMLDivElement) => {
+    if (activeOwnerDropdown === taskId) {
+      closeAllDropdowns();
+      return;
+    }
+
+    const currentOwners = assignmentByTaskId.get(taskId)?.ownerNames || [];
+
+    closeAllDropdowns();
+    setOwnerSelectionDraft(currentOwners);
+
     const rect = anchorEl.getBoundingClientRect();
     setOwnerDropdownAnchor({
       x: rect.left + (rect.width / 2),
@@ -593,16 +613,10 @@ export default function TaskBoardPage() {
 
   const toggleCrewDropdown = (taskId: string, anchorEl: HTMLDivElement) => {
     if (activeCrewDropdown === taskId) {
-      setActiveCrewDropdown(null);
-      setCrewDropdownAnchor(null);
+      closeAllDropdowns();
       return;
     }
-    setActiveOwnerDropdown(null);
-    setOwnerDropdownAnchor(null);
-    setActiveStatusDropdown(null);
-    setStatusDropdownAnchor(null);
-    setActivePriorityDropdown(null);
-    setPriorityDropdownAnchor(null);
+    closeAllDropdowns();
     const rect = anchorEl.getBoundingClientRect();
     setCrewDropdownAnchor({
       x: rect.left + (rect.width / 2),
@@ -611,18 +625,35 @@ export default function TaskBoardPage() {
     setActiveCrewDropdown(taskId);
   };
 
+  const handleConfirmOwnerSelection = useCallback(async (taskId: string) => {
+    if (isSavingOwnerSelection) return;
+
+    const assignment = assignmentByTaskId.get(taskId);
+    const currentOwners = assignment?.ownerNames || [];
+    const crewNames = assignment?.crewNames || [];
+    const nextOwners = Array.from(new Set(ownerSelectionDraft.map((owner) => owner.trim()).filter(Boolean)));
+    const ownersChanged = nextOwners.length !== currentOwners.length
+      || nextOwners.some((owner, index) => owner !== currentOwners[index]);
+
+    try {
+      setIsSavingOwnerSelection(true);
+      if (ownersChanged) {
+        await Promise.resolve(handleUpdateTaskOwners(taskId, [...nextOwners, ...crewNames]));
+      }
+      closeAllDropdowns();
+    } catch (error) {
+      console.error('Failed to update task owners:', error);
+      void modal.error('ไม่สามารถอัปเดตผู้รับผิดชอบได้ โปรดลองอีกครั้ง');
+      setIsSavingOwnerSelection(false);
+    }
+  }, [assignmentByTaskId, closeAllDropdowns, handleUpdateTaskOwners, isSavingOwnerSelection, modal, ownerSelectionDraft]);
+
   const toggleStatusDropdown = (taskId: string, anchorEl: HTMLDivElement) => {
     if (activeStatusDropdown === taskId) {
-      setActiveStatusDropdown(null);
-      setStatusDropdownAnchor(null);
+      closeAllDropdowns();
       return;
     }
-    setActiveOwnerDropdown(null);
-    setOwnerDropdownAnchor(null);
-    setActiveCrewDropdown(null);
-    setCrewDropdownAnchor(null);
-    setActivePriorityDropdown(null);
-    setPriorityDropdownAnchor(null);
+    closeAllDropdowns();
     const rect = anchorEl.getBoundingClientRect();
     setStatusDropdownAnchor({
       x: rect.left + (rect.width / 2),
@@ -633,16 +664,10 @@ export default function TaskBoardPage() {
 
   const togglePriorityDropdown = (taskId: string, anchorEl: HTMLDivElement) => {
     if (activePriorityDropdown === taskId) {
-      setActivePriorityDropdown(null);
-      setPriorityDropdownAnchor(null);
+      closeAllDropdowns();
       return;
     }
-    setActiveOwnerDropdown(null);
-    setOwnerDropdownAnchor(null);
-    setActiveCrewDropdown(null);
-    setCrewDropdownAnchor(null);
-    setActiveStatusDropdown(null);
-    setStatusDropdownAnchor(null);
+    closeAllDropdowns();
     const rect = anchorEl.getBoundingClientRect();
     setPriorityDropdownAnchor({
       x: rect.left + (rect.width / 2),
@@ -653,23 +678,13 @@ export default function TaskBoardPage() {
 
   useEffect(() => {
     if (!activeOwnerDropdown && !activeCrewDropdown && !activeStatusDropdown && !activePriorityDropdown) return;
-    const closeDropdowns = () => {
-      setActiveOwnerDropdown(null);
-      setOwnerDropdownAnchor(null);
-      setActiveCrewDropdown(null);
-      setCrewDropdownAnchor(null);
-      setActiveStatusDropdown(null);
-      setStatusDropdownAnchor(null);
-      setActivePriorityDropdown(null);
-      setPriorityDropdownAnchor(null);
-    };
-    window.addEventListener('scroll', closeDropdowns, true);
-    window.addEventListener('resize', closeDropdowns);
+    window.addEventListener('scroll', closeAllDropdowns, true);
+    window.addEventListener('resize', closeAllDropdowns);
     return () => {
-      window.removeEventListener('scroll', closeDropdowns, true);
-      window.removeEventListener('resize', closeDropdowns);
+      window.removeEventListener('scroll', closeAllDropdowns, true);
+      window.removeEventListener('resize', closeAllDropdowns);
     };
-  }, [activeOwnerDropdown, activeCrewDropdown, activeStatusDropdown, activePriorityDropdown]);
+  }, [activeOwnerDropdown, activeCrewDropdown, activeStatusDropdown, activePriorityDropdown, closeAllDropdowns]);
 
   const openDeleteTaskModal = (task: Task) => {
     setPendingDeleteTask(task);
@@ -1066,6 +1081,14 @@ export default function TaskBoardPage() {
                 placeholder="ชื่อโครงการ"
                 className="w-full rounded-lg border border-[#c4cede] bg-white px-3 py-2 text-[13px] text-[#233548] outline-none focus:border-[#0073ea] focus:ring-2 focus:ring-[#0073ea]/20"
               />
+              <label className="text-[12px] font-medium text-[#495d71]">รหัสโครงการ</label>
+              <input
+                type="text"
+                value={projectCodeDraft}
+                onChange={(e) => setProjectCodeDraft(e.target.value)}
+                placeholder="รหัสโครงการ"
+                className="w-full rounded-lg border border-[#c4cede] bg-white px-3 py-2 text-[13px] text-[#233548] outline-none focus:border-[#0073ea] focus:ring-2 focus:ring-[#0073ea]/20"
+              />
               <label className="text-[12px] font-medium text-[#495d71]">สถานะโครงการ</label>
               <select
                 value={projectStatusDraft}
@@ -1092,6 +1115,7 @@ export default function TaskBoardPage() {
                   type="button"
                   onClick={() => {
                     setProjectNameDraft(activeProject.name);
+                    setProjectCodeDraft(activeProject.code || '');
                     setProjectStatusDraft(activeProject.status);
                     setShowProjectSettings(false);
                   }}
@@ -1627,7 +1651,7 @@ export default function TaskBoardPage() {
                                         </div>
                                         <button
                                           type="button"
-                                          onClick={() => { handleUpdateTaskOwners(task.id, [...crewNames]); }}
+                                          onClick={() => { setOwnerSelectionDraft([]); }}
                                           className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[#d4dcea] bg-white text-[#7b8796] shadow-sm transition-colors hover:border-[#bcc9dc] hover:bg-[#f8fafc] hover:text-[#2f3b4c]"
                                           title="ล้างผู้รับผิดชอบ"
                                           aria-label="ล้างผู้รับผิดชอบ"
@@ -1637,9 +1661,9 @@ export default function TaskBoardPage() {
                                       </div>
                                       <div className="mt-2 flex items-center gap-2">
                                         <span className="inline-flex h-5 items-center rounded-full bg-[#e9f2ff] px-2 text-[10px] font-semibold text-[#0b63ce]">
-                                          {ownerNames.length} รายการที่เลือก
+                                          {ownerSelectionDraft.length} รายการที่เลือก
                                         </span>
-                                        {ownerNames.length === 0 && (
+                                        {ownerSelectionDraft.length === 0 && (
                                           <span className="text-[10px] text-[#8a97a8]">
                                             ยังไม่ได้เลือกผู้รับผิดชอบ
                                           </span>
@@ -1649,7 +1673,7 @@ export default function TaskBoardPage() {
                                     <div className="max-h-72 overflow-y-auto bg-[#fbfcfe] px-3.5 py-3">
                                       <div className="grid grid-cols-5 gap-x-2.5 gap-y-3">
                                         {teamMembers.filter((member) => member.memberType !== 'crew').map((member) => {
-                                          const isSelected = ownerNames.includes(member.name);
+                                          const isSelected = ownerSelectionDraft.includes(member.name);
                                           return (
                                             <button
                                               key={member.id}
@@ -1658,9 +1682,9 @@ export default function TaskBoardPage() {
                                               aria-label={member.name}
                                               onClick={() => {
                                                 const nextOwners = isSelected
-                                                  ? ownerNames.filter((owner) => owner !== member.name)
-                                                  : [...ownerNames, member.name];
-                                                handleUpdateTaskOwners(task.id, [...nextOwners, ...crewNames]);
+                                                  ? ownerSelectionDraft.filter((owner) => owner !== member.name)
+                                                  : [...ownerSelectionDraft, member.name];
+                                                setOwnerSelectionDraft(nextOwners);
                                               }}
                                               className="group flex items-center justify-center rounded-xl p-0.5 transition-transform duration-150 hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-[#0073ea]/25"
                                             >
@@ -1695,13 +1719,11 @@ export default function TaskBoardPage() {
                                     <div className="flex items-center justify-end border-t border-[#e7edf5] bg-white px-3.5 py-2.5">
                                       <button
                                         type="button"
-                                        onClick={() => {
-                                          setActiveOwnerDropdown(null);
-                                          setOwnerDropdownAnchor(null);
-                                        }}
-                                        className="inline-flex h-8 items-center rounded-lg bg-[#0b63ce] px-3 text-[11px] font-semibold text-white shadow-sm transition-colors hover:bg-[#0954ad]"
+                                        onClick={() => void handleConfirmOwnerSelection(task.id)}
+                                        disabled={isSavingOwnerSelection}
+                                        className="inline-flex h-8 items-center rounded-lg bg-[#0b63ce] px-3 text-[11px] font-semibold text-white shadow-sm transition-colors hover:bg-[#0954ad] disabled:opacity-60"
                                       >
-                                        เสร็จสิ้น
+                                        {isSavingOwnerSelection ? 'กำลังบันทึก...' : 'เสร็จสิ้น'}
                                       </button>
                                     </div>
                                   </div>,
