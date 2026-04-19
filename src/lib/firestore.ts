@@ -180,14 +180,19 @@ export function subscribeNotificationSettings(callback: (settings: NotificationS
         }
 
         const data = snapshot.data() as Partial<NotificationSettings>;
+        const fallbackLineReportType = data.lineReportType === 'today-team-load' || data.lineReportType === 'completed-last-2-days'
+            ? data.lineReportType
+            : 'project-summary';
         callback({
             notifyTaskAssigned: data.notifyTaskAssigned ?? true,
             notifyTaskStatusChanged: data.notifyTaskStatusChanged ?? true,
             notifyTaskCommentAdded: data.notifyTaskCommentAdded ?? true,
             lineAdminUserId: (typeof data.lineAdminUserId === 'string' ? data.lineAdminUserId : '').trim(),
-            lineReportType: data.lineReportType === 'today-team-load' || data.lineReportType === 'completed-last-2-days'
-                ? data.lineReportType
-                : 'project-summary',
+            lineAdminGroupId: (typeof data.lineAdminGroupId === 'string' ? data.lineAdminGroupId : '').trim(),
+            lineReportType: fallbackLineReportType,
+            adminReportProjectSummaryEnabled: data.adminReportProjectSummaryEnabled ?? (fallbackLineReportType === 'project-summary'),
+            adminReportTodayTeamLoadEnabled: data.adminReportTodayTeamLoadEnabled ?? (fallbackLineReportType === 'today-team-load'),
+            adminReportCompletedLast2DaysEnabled: data.adminReportCompletedLast2DaysEnabled ?? (fallbackLineReportType === 'completed-last-2-days'),
             employeeReportEnabled: data.employeeReportEnabled ?? false,
             employeeReportFrequency: data.employeeReportFrequency === 'daily' ? 'daily' : 'weekly',
             employeeReportDayOfWeek: (() => {

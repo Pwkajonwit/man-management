@@ -221,7 +221,11 @@ export interface NotificationSettings {
     notifyTaskStatusChanged: boolean;
     notifyTaskCommentAdded: boolean;
     lineAdminUserId: string;
+    lineAdminGroupId?: string;
     lineReportType: 'project-summary' | 'today-team-load' | 'completed-last-2-days';
+    adminReportProjectSummaryEnabled: boolean;
+    adminReportTodayTeamLoadEnabled: boolean;
+    adminReportCompletedLast2DaysEnabled: boolean;
     employeeReportEnabled: boolean;
     employeeReportFrequency: 'daily' | 'weekly';
     employeeReportDayOfWeek: 'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | 'saturday' | 'sunday';

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useMemo, useState } from 'react';
-import { Bell, Clock3, MessageSquare, RefreshCw, Save, Send, Settings2, UserPlus, Users } from 'lucide-react';
+import { Bell, MessageSquare, RefreshCw, Save, Send, Settings2, UserPlus, Users } from 'lucide-react';
 import LinearLoadingScreen from '@/components/LinearLoadingScreen';
 import { useAppContext } from '@/contexts/AppContext';
 import { Task, TeamMember } from '@/types/construction';
@@ -44,6 +44,35 @@ const dayOptions = [
     'sunday',
 ] as const;
 
+const adminReportOptions = [
+    {
+        key: 'adminReportProjectSummaryEnabled' as const,
+        label: 'สรุปโครงการ',
+        hint: 'ภาพรวมงานทั้งหมดของแต่ละโครงการ',
+    },
+    {
+        key: 'adminReportTodayTeamLoadEnabled' as const,
+        label: 'ภาระงานทีมวันนี้',
+        hint: 'สรุปงานเปิด, ครบกำหนดวันนี้ และงานค้างของแต่ละคน',
+    },
+    {
+        key: 'adminReportCompletedLast2DaysEnabled' as const,
+        label: 'เสร็จสิ้น 2 วันล่าสุด',
+        hint: 'รวมงานที่เสร็จวันนี้และเมื่อวาน',
+    },
+];
+
+const parseLineTargetIds = (value: string) => (
+    value
+        .split(',')
+        .map((id) => id.trim())
+        .filter(Boolean)
+);
+
+const joinLineTargetIds = (ids: string[]) => (
+    Array.from(new Set(ids.map((id) => id.trim()).filter(Boolean))).join(', ')
+);
+
 function isTaskOverdue(task: Task): boolean {
     if (!task.planEndDate || task.status === 'completed') return false;
     const due = new Date(task.planEndDate);
@@ -70,8 +99,6 @@ export default function SettingsPage() {
         updateNotificationSettings,
         teamMembers,
         tasks,
-        projects,
-        activeProjectId,
     } = useAppContext();
 
     const [savingKey, setSavingKey] = useState<ToggleSettingKey | null>(null);
@@ -79,22 +106,16 @@ export default function SettingsPage() {
     const [isSendingTest, setIsSendingTest] = useState(false);
 
     const [lineAdminUserIdDraft, setLineAdminUserIdDraft] = useState('');
-    const [lineReportTypeDraft, setLineReportTypeDraft] = useState<'project-summary' | 'today-team-load' | 'completed-last-2-days'>('project-summary');
+    const [selectedAdminMemberIds, setSelectedAdminMemberIds] = useState<string[]>([]);
+    const [lineAdminGroupIdDraft, setLineAdminGroupIdDraft] = useState('');
+    const [adminReportProjectSummaryEnabled, setAdminReportProjectSummaryEnabled] = useState(true);
+    const [adminReportTodayTeamLoadEnabled, setAdminReportTodayTeamLoadEnabled] = useState(false);
+    const [adminReportCompletedLast2DaysEnabled, setAdminReportCompletedLast2DaysEnabled] = useState(false);
 
     const [employeeReportEnabled, setEmployeeReportEnabled] = useState(false);
     const [employeeReportFrequency, setEmployeeReportFrequency] = useState<'daily' | 'weekly'>('weekly');
     const [employeeReportDayOfWeek, setEmployeeReportDayOfWeek] = useState<(typeof dayOptions)[number]>('monday');
-    const [employeeReportTime, setEmployeeReportTime] = useState('17:00');
-    const [employeeReportScope, setEmployeeReportScope] = useState<'active-project' | 'all-projects'>('active-project');
     const [employeeReportTemplate, setEmployeeReportTemplate] = useState<'compact' | 'detailed'>('detailed');
-    const [employeeReportIncludeOverdue, setEmployeeReportIncludeOverdue] = useState(true);
-    const [employeeReportIncludeDueSoon, setEmployeeReportIncludeDueSoon] = useState(true);
-    const [employeeReportIncludeCompleted, setEmployeeReportIncludeCompleted] = useState(true);
-    const [employeeReportIncludeNotStarted, setEmployeeReportIncludeNotStarted] = useState(true);
-    const [employeeReportIncludeInProgress, setEmployeeReportIncludeInProgress] = useState(true);
-    const [employeeReportIncludeTaskList, setEmployeeReportIncludeTaskList] = useState(true);
-    const [employeeReportMaxItems, setEmployeeReportMaxItems] = useState(6);
-    const [employeeReportDueSoonDays, setEmployeeReportDueSoonDays] = useState(2);
     const [employeeReportTestMemberId, setEmployeeReportTestMemberId] = useState('');
 
     const reportableMembers = useMemo(
@@ -102,26 +123,51 @@ export default function SettingsPage() {
         [teamMembers]
     );
 
+    const membersWithLine = useMemo(
+        () => reportableMembers.filter((member) => Boolean(member.lineUserId && member.lineUserId.trim())),
+        [reportableMembers]
+    );
+
+    const selectedAdminLineUserIds = useMemo(
+        () => selectedAdminMemberIds
+            .map((memberId) => membersWithLine.find((member) => member.id === memberId)?.lineUserId?.trim())
+            .filter((id): id is string => Boolean(id)),
+        [membersWithLine, selectedAdminMemberIds]
+    );
+
+    const combinedAdminLineUserIdDraft = useMemo(
+        () => joinLineTargetIds([
+            ...selectedAdminLineUserIds,
+            ...parseLineTargetIds(lineAdminUserIdDraft),
+        ]),
+        [lineAdminUserIdDraft, selectedAdminLineUserIds]
+    );
+
     useEffect(() => {
-        setLineAdminUserIdDraft(notificationSettings.lineAdminUserId || '');
-        setLineReportTypeDraft(notificationSettings.lineReportType || 'project-summary');
+        const savedAdminLineIds = parseLineTargetIds(notificationSettings.lineAdminUserId || '');
+        const memberLineIdToMemberId = new Map<string, string>(
+            membersWithLine
+                .map((member) => [member.lineUserId?.trim() || '', member.id] as const)
+                .filter(([lineUserId]) => Boolean(lineUserId))
+        );
+        const nextSelectedAdminMemberIds = savedAdminLineIds
+            .map((lineUserId) => memberLineIdToMemberId.get(lineUserId))
+            .filter((memberId): memberId is string => Boolean(memberId));
+        const manualAdminLineIds = savedAdminLineIds.filter((lineUserId) => !memberLineIdToMemberId.has(lineUserId));
+
+        setSelectedAdminMemberIds(Array.from(new Set(nextSelectedAdminMemberIds)));
+        setLineAdminUserIdDraft(manualAdminLineIds.join(', '));
+        setLineAdminGroupIdDraft(notificationSettings.lineAdminGroupId || '');
+        setAdminReportProjectSummaryEnabled(notificationSettings.adminReportProjectSummaryEnabled ?? true);
+        setAdminReportTodayTeamLoadEnabled(notificationSettings.adminReportTodayTeamLoadEnabled ?? false);
+        setAdminReportCompletedLast2DaysEnabled(notificationSettings.adminReportCompletedLast2DaysEnabled ?? false);
 
         setEmployeeReportEnabled(notificationSettings.employeeReportEnabled ?? false);
         setEmployeeReportFrequency(notificationSettings.employeeReportFrequency || 'weekly');
         setEmployeeReportDayOfWeek(notificationSettings.employeeReportDayOfWeek || 'monday');
-        setEmployeeReportTime(notificationSettings.employeeReportTime || '17:00');
-        setEmployeeReportScope(notificationSettings.employeeReportScope || 'active-project');
         setEmployeeReportTemplate(notificationSettings.employeeReportTemplate || 'detailed');
-        setEmployeeReportIncludeOverdue(notificationSettings.employeeReportIncludeOverdue ?? true);
-        setEmployeeReportIncludeDueSoon(notificationSettings.employeeReportIncludeDueSoon ?? true);
-        setEmployeeReportIncludeCompleted(notificationSettings.employeeReportIncludeCompleted ?? true);
-        setEmployeeReportIncludeNotStarted(notificationSettings.employeeReportIncludeNotStarted ?? true);
-        setEmployeeReportIncludeInProgress(notificationSettings.employeeReportIncludeInProgress ?? true);
-        setEmployeeReportIncludeTaskList(notificationSettings.employeeReportIncludeTaskList ?? true);
-        setEmployeeReportMaxItems(notificationSettings.employeeReportMaxItems ?? 6);
-        setEmployeeReportDueSoonDays(notificationSettings.employeeReportDueSoonDays ?? 2);
         setEmployeeReportTestMemberId(notificationSettings.employeeReportTestMemberId || '');
-    }, [notificationSettings]);
+    }, [membersWithLine, notificationSettings]);
 
     const handleToggle = async (key: ToggleSettingKey) => {
         try {
@@ -138,23 +184,22 @@ export default function SettingsPage() {
     const handleSaveLineConfig = async () => {
         try {
             setIsSavingLineConfig(true);
+            const nextPrimaryReportType =
+                adminReportProjectSummaryEnabled ? 'project-summary'
+                    : adminReportTodayTeamLoadEnabled ? 'today-team-load'
+                        : adminReportCompletedLast2DaysEnabled ? 'completed-last-2-days'
+                            : 'project-summary';
             await updateNotificationSettings({
-                lineAdminUserId: lineAdminUserIdDraft.trim(),
-                lineReportType: lineReportTypeDraft,
+                lineAdminUserId: combinedAdminLineUserIdDraft,
+                lineAdminGroupId: lineAdminGroupIdDraft.trim(),
+                lineReportType: nextPrimaryReportType,
+                adminReportProjectSummaryEnabled,
+                adminReportTodayTeamLoadEnabled,
+                adminReportCompletedLast2DaysEnabled,
                 employeeReportEnabled,
                 employeeReportFrequency,
                 employeeReportDayOfWeek,
-                employeeReportTime,
-                employeeReportScope,
                 employeeReportTemplate,
-                employeeReportIncludeOverdue,
-                employeeReportIncludeDueSoon,
-                employeeReportIncludeCompleted,
-                employeeReportIncludeNotStarted,
-                employeeReportIncludeInProgress,
-                employeeReportIncludeTaskList,
-                employeeReportMaxItems: Math.min(Math.max(employeeReportMaxItems, 1), 20),
-                employeeReportDueSoonDays: Math.min(Math.max(employeeReportDueSoonDays, 1), 14),
                 employeeReportTestMemberId,
             });
             alert('บันทึกการตั้งค่ารายงาน LINE แล้ว');
@@ -165,21 +210,6 @@ export default function SettingsPage() {
             setIsSavingLineConfig(false);
         }
     };
-
-    const membersWithLine = useMemo(
-        () => reportableMembers.filter((member) => Boolean(member.lineUserId && member.lineUserId.trim())),
-        [reportableMembers]
-    );
-
-    const activeProject = useMemo(
-        () => projects.find((project) => project.id === activeProjectId),
-        [projects, activeProjectId]
-    );
-
-    const scopedTasks = useMemo(() => {
-        if (employeeReportScope === 'all-projects') return tasks;
-        return tasks.filter((task) => task.projectId === activeProjectId);
-    }, [employeeReportScope, tasks, activeProjectId]);
 
     const selectedMember = useMemo(
         () => reportableMembers.find((member) => member.id === employeeReportTestMemberId) || null,
@@ -195,47 +225,28 @@ export default function SettingsPage() {
 
     const preview = useMemo(() => {
         if (!selectedMember) {
-            return { total: 0, overdue: 0, dueSoon: 0, inProgress: 0, notStarted: 0, completed: 0, tasks: [] as Task[], reportTasks: [] as Task[] };
+            return { total: 0, overdue: 0, dueSoon: 0, inProgress: 0, notStarted: 0, completed: 0, reportTasks: [] as Task[] };
         }
 
-        const memberTasks = scopedTasks.filter((task) => {
+        const memberTasks = tasks.filter((task) => {
             const byIds = (task.assignedEmployeeIds || []).includes(selectedMember.id);
             const byName = (task.responsible || '').trim() === selectedMember.name;
             return byIds || byName;
         });
-
-        const filteredForList = memberTasks
-            .filter((task) => {
-                if (task.status === 'completed' && !employeeReportIncludeCompleted) return false;
-                if (task.status === 'not-started' && !employeeReportIncludeNotStarted) return false;
-                if (task.status === 'in-progress' && !employeeReportIncludeInProgress) return false;
-                if (!employeeReportIncludeOverdue && isTaskOverdue(task)) return false;
-                if (!employeeReportIncludeDueSoon && isTaskDueSoon(task, employeeReportDueSoonDays)) return false;
-                return true;
-            })
-            .sort((a, b) => new Date(a.planEndDate).getTime() - new Date(b.planEndDate).getTime());
+        const sortedTasks = [...memberTasks].sort((a, b) => new Date(a.planEndDate).getTime() - new Date(b.planEndDate).getTime());
 
         return {
-            total: memberTasks.filter((task) => task.status !== 'completed').length,
+            total: memberTasks.length,
             overdue: memberTasks.filter((task) => isTaskOverdue(task)).length,
-            dueSoon: memberTasks.filter((task) => isTaskDueSoon(task, employeeReportDueSoonDays)).length,
+            dueSoon: memberTasks.filter((task) => isTaskDueSoon(task, 2)).length,
             inProgress: memberTasks.filter((task) => task.status === 'in-progress').length,
             notStarted: memberTasks.filter((task) => task.status === 'not-started').length,
             completed: memberTasks.filter((task) => task.status === 'completed').length,
-            tasks: employeeReportIncludeTaskList ? filteredForList.slice(0, employeeReportMaxItems) : [],
-            reportTasks: employeeReportIncludeTaskList ? filteredForList : [],
+            reportTasks: sortedTasks,
         };
     }, [
         selectedMember,
-        scopedTasks,
-        employeeReportIncludeCompleted,
-        employeeReportIncludeNotStarted,
-        employeeReportIncludeInProgress,
-        employeeReportIncludeOverdue,
-        employeeReportIncludeDueSoon,
-        employeeReportDueSoonDays,
-        employeeReportIncludeTaskList,
-        employeeReportMaxItems,
+        tasks,
     ]);
 
     const handleSendEmployeeTest = async () => {
@@ -250,18 +261,14 @@ export default function SettingsPage() {
 
         try {
             setIsSendingTest(true);
-            const periodLabel = employeeReportFrequency === 'weekly'
-                ? `Weekly Snapshot (${new Date().toLocaleDateString('en-GB')})`
-                : `Daily Snapshot (${new Date().toLocaleDateString('en-GB')})`;
-
             const response = await fetch('/api/line-employee-report', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     to: selectedMember.lineUserId,
                     employeeName: selectedMember.name,
-                    projectName: employeeReportScope === 'all-projects' ? 'All Projects' : (activeProject?.name || 'Active Project'),
-                    periodLabel,
+                    projectName: 'สรุปงานของฉัน',
+                    periodLabel: 'งานปัจจุบัน',
                     template: employeeReportTemplate,
                     summary: {
                         total: preview.total,
@@ -278,7 +285,7 @@ export default function SettingsPage() {
                         endDate: task.planEndDate,
                         durationDays: task.planDuration,
                         dueDate: task.planEndDate,
-                        projectName: projects.find((project) => project.id === task.projectId)?.name || 'Unknown Project',
+                        projectName: task.projectId || 'Unknown Project',
                     })),
                 }),
             });
@@ -299,24 +306,26 @@ export default function SettingsPage() {
 
     if (loading) return <LinearLoadingScreen message="กำลังโหลดการตั้งค่า..." />;
 
+    const normalizedSavedAdminLineUserId = joinLineTargetIds(parseLineTargetIds(notificationSettings.lineAdminUserId || ''));
     const isLineConfigChanged =
-        lineAdminUserIdDraft.trim() !== (notificationSettings.lineAdminUserId || '').trim() ||
-        lineReportTypeDraft !== (notificationSettings.lineReportType || 'project-summary') ||
+        combinedAdminLineUserIdDraft !== normalizedSavedAdminLineUserId ||
+        lineAdminGroupIdDraft.trim() !== (notificationSettings.lineAdminGroupId || '').trim() ||
+        adminReportProjectSummaryEnabled !== (notificationSettings.adminReportProjectSummaryEnabled ?? true) ||
+        adminReportTodayTeamLoadEnabled !== (notificationSettings.adminReportTodayTeamLoadEnabled ?? false) ||
+        adminReportCompletedLast2DaysEnabled !== (notificationSettings.adminReportCompletedLast2DaysEnabled ?? false) ||
         employeeReportEnabled !== (notificationSettings.employeeReportEnabled ?? false) ||
         employeeReportFrequency !== (notificationSettings.employeeReportFrequency || 'weekly') ||
         employeeReportDayOfWeek !== (notificationSettings.employeeReportDayOfWeek || 'monday') ||
-        employeeReportTime !== (notificationSettings.employeeReportTime || '17:00') ||
-        employeeReportScope !== (notificationSettings.employeeReportScope || 'active-project') ||
         employeeReportTemplate !== (notificationSettings.employeeReportTemplate || 'detailed') ||
-        employeeReportIncludeOverdue !== (notificationSettings.employeeReportIncludeOverdue ?? true) ||
-        employeeReportIncludeDueSoon !== (notificationSettings.employeeReportIncludeDueSoon ?? true) ||
-        employeeReportIncludeCompleted !== (notificationSettings.employeeReportIncludeCompleted ?? true) ||
-        employeeReportIncludeNotStarted !== (notificationSettings.employeeReportIncludeNotStarted ?? true) ||
-        employeeReportIncludeInProgress !== (notificationSettings.employeeReportIncludeInProgress ?? true) ||
-        employeeReportIncludeTaskList !== (notificationSettings.employeeReportIncludeTaskList ?? true) ||
-        employeeReportMaxItems !== (notificationSettings.employeeReportMaxItems ?? 6) ||
-        employeeReportDueSoonDays !== (notificationSettings.employeeReportDueSoonDays ?? 2) ||
         employeeReportTestMemberId !== (notificationSettings.employeeReportTestMemberId || '');
+
+    const toggleAdminMember = (memberId: string) => {
+        setSelectedAdminMemberIds((prev) => (
+            prev.includes(memberId)
+                ? prev.filter((id) => id !== memberId)
+                : [...prev, memberId]
+        ));
+    };
 
     const renderSwitch = (
         checked: boolean,
@@ -356,23 +365,107 @@ export default function SettingsPage() {
                                 <Settings2 className="w-4 h-4 text-[#0073ea]" />
                                 การตั้งค่ารายงานผู้ดูแลระบบ
                             </div>
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-                                <input
-                                    type="text"
-                                    value={lineAdminUserIdDraft}
-                                    onChange={(e) => setLineAdminUserIdDraft(e.target.value)}
-                                    placeholder="รหัสผู้ใช้ LINE ของผู้ดูแลระบบ"
-                                    className="md:col-span-2 h-10 px-3 border border-[#d0d4e4] rounded-lg text-[14px] outline-none focus:ring-2 focus:ring-[#0073ea]"
-                                />
-                                <select
-                                    value={lineReportTypeDraft}
-                                    onChange={(e) => setLineReportTypeDraft(e.target.value as 'project-summary' | 'today-team-load' | 'completed-last-2-days')}
-                                    className="h-10 px-3 border border-[#d0d4e4] rounded-lg text-[14px] outline-none focus:ring-2 focus:ring-[#0073ea] bg-white"
-                                >
-                                    <option value="project-summary">สรุปโครงการ</option>
-                                    <option value="today-team-load">ภาระงานทีมวันนี้</option>
-                                    <option value="completed-last-2-days">เสร็จสิ้น (วันนี้ + เมื่อวาน)</option>
-                                </select>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                <div className="space-y-2">
+                                    <div className="text-[13px] font-medium text-[#323338]">เลือกผู้รับรายงานแอดมิน</div>
+                                    <div className="max-h-52 overflow-y-auto rounded-lg border border-[#d0d4e4] bg-[#f8fafc] p-2 space-y-2">
+                                        {membersWithLine.length === 0 ? (
+                                            <div className="px-2 py-3 text-[12px] text-[#676879]">
+                                                ยังไม่มีสมาชิกทีมที่ตั้งค่า LINE User ID
+                                            </div>
+                                        ) : (
+                                            membersWithLine.map((member) => {
+                                                const checked = selectedAdminMemberIds.includes(member.id);
+                                                return (
+                                                    <button
+                                                        key={member.id}
+                                                        type="button"
+                                                        onClick={() => toggleAdminMember(member.id)}
+                                                        className={`w-full rounded-lg border px-3 py-2 text-left transition-colors ${
+                                                            checked
+                                                                ? 'border-[#0073ea] bg-[#eef6ff]'
+                                                                : 'border-[#e2e8f0] bg-white hover:bg-[#f5f8fc]'
+                                                        }`}
+                                                    >
+                                                        <div className="flex items-start justify-between gap-3">
+                                                            <div className="min-w-0">
+                                                                <div className="truncate text-[13px] font-semibold text-[#323338]">{member.name}</div>
+                                                                <div className="mt-0.5 truncate text-[11px] text-[#676879]">
+                                                                    {member.position || '-'} • {member.lineUserId}
+                                                                </div>
+                                                            </div>
+                                                            <span className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded border ${
+                                                                checked
+                                                                    ? 'border-[#0073ea] bg-[#0073ea] text-white'
+                                                                    : 'border-[#cbd5e1] bg-white text-transparent'
+                                                            }`}>
+                                                                ✓
+                                                            </span>
+                                                        </div>
+                                                    </button>
+                                                );
+                                            })
+                                        )}
+                                    </div>
+                                    <div className="text-[11px] text-[#676879]">
+                                        เลือกได้หลายคน ระบบจะส่งรายงาน LINE ให้ทุกคนที่เลือก
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        <div className="text-[12px] font-medium text-[#323338]">User ID เพิ่มเติม</div>
+                                        <input
+                                            type="text"
+                                            value={lineAdminUserIdDraft}
+                                            onChange={(e) => setLineAdminUserIdDraft(e.target.value)}
+                                            placeholder="เช่น U123..., U456..."
+                                            className="h-10 w-full px-3 border border-[#d0d4e4] rounded-lg text-[14px] outline-none focus:ring-2 focus:ring-[#0073ea]"
+                                        />
+                                        <div className="text-[11px] text-[#676879]">
+                                            ใช้สำหรับผู้รับที่ไม่ได้อยู่ในรายชื่อสมาชิก คั่นหลาย ID ด้วย comma `,`
+                                        </div>
+                                    </div>
+                                    {combinedAdminLineUserIdDraft && (
+                                        <div className="rounded-lg border border-[#e6e9ef] bg-white px-3 py-2 text-[11px] text-[#516273] break-all">
+                                            ส่งถึง: {combinedAdminLineUserIdDraft}
+                                        </div>
+                                    )}
+                                </div>
+                                <div className="space-y-1.5">
+                                    <div className="text-[13px] font-medium text-[#323338]">ส่งเข้ากลุ่ม LINE (Group ID)</div>
+                                    <input
+                                        type="text"
+                                        value={lineAdminGroupIdDraft}
+                                        onChange={(e) => setLineAdminGroupIdDraft(e.target.value)}
+                                        placeholder="เช่น C1234567890abcdef..."
+                                        className="h-10 w-full px-3 border border-[#d0d4e4] rounded-lg text-[14px] outline-none focus:ring-2 focus:ring-[#0073ea]"
+                                    />
+                                </div>
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                <div className="space-y-2">
+                                    <div className="text-[13px] font-medium text-[#323338]">ประเภทรายงานที่ต้องการส่งอัตโนมัติ</div>
+                                    {adminReportOptions.map((option) => {
+                                        const checked =
+                                            option.key === 'adminReportProjectSummaryEnabled' ? adminReportProjectSummaryEnabled
+                                                : option.key === 'adminReportTodayTeamLoadEnabled' ? adminReportTodayTeamLoadEnabled
+                                                    : adminReportCompletedLast2DaysEnabled;
+                                        const onChange =
+                                            option.key === 'adminReportProjectSummaryEnabled' ? setAdminReportProjectSummaryEnabled
+                                                : option.key === 'adminReportTodayTeamLoadEnabled' ? setAdminReportTodayTeamLoadEnabled
+                                                    : setAdminReportCompletedLast2DaysEnabled;
+
+                                        return (
+                                            <div key={option.key}>
+                                                {renderSwitch(checked, onChange, option.label, option.hint)}
+                                            </div>
+                                        );
+                                    })}
+                                    <div className="text-[11px] text-[#676879]">
+                                        เลือกได้หลายแบบพร้อมกัน หรือจะปิดทั้งหมดเพื่อไม่ส่งรายงานแอดมินอัตโนมัติก็ได้
+                                    </div>
+                                </div>
+                                <div className="rounded-lg border border-[#e6e9ef] bg-[#f8fbff] px-3 py-2 text-[12px] text-[#516273]">
+                                    LINE OA ต้องถูกเชิญเข้ากลุ่มก่อน จึงจะส่งรายงานเข้ากลุ่มได้
+                                </div>
                             </div>
                         </div>
 
@@ -382,12 +475,11 @@ export default function SettingsPage() {
                                 การตั้งค่ารายงานพนักงาน
                             </div>
 
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                                {renderSwitch(employeeReportEnabled, setEmployeeReportEnabled, 'เปิดใช้งานรายงานพนักงาน', 'อนุญาตให้ส่งรายงานภาระงานส่วนบุคคล')}
-                                {renderSwitch(employeeReportIncludeTaskList, setEmployeeReportIncludeTaskList, 'รวมรายชื่อส่วนการทำงาน', 'รวมรายการงานหลักลงในรายงาน')}
+                            <div className="grid grid-cols-1 gap-2">
+                                {renderSwitch(employeeReportEnabled, setEmployeeReportEnabled, 'เปิดใช้งานรายงานพนักงาน', 'อนุญาตให้ระบบส่งรายงานภาระงานส่วนบุคคลตามรอบอัตโนมัติ')}
                             </div>
 
-                            <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
                                 <select
                                     value={employeeReportFrequency}
                                     onChange={(e) => setEmployeeReportFrequency(e.target.value as 'daily' | 'weekly')}
@@ -406,26 +498,6 @@ export default function SettingsPage() {
                                         <option key={day} value={day}>{`วัน: ${day}`}</option>
                                     ))}
                                 </select>
-                                <div className="relative">
-                                    <Clock3 className="w-4 h-4 text-[#676879] absolute left-3 top-3" />
-                                    <input
-                                        type="time"
-                                        value={employeeReportTime}
-                                        onChange={(e) => setEmployeeReportTime(e.target.value)}
-                                        className="h-10 w-full pl-9 pr-3 border border-[#d0d4e4] rounded-lg text-[13px] outline-none"
-                                    />
-                                </div>
-                                <select
-                                    value={employeeReportScope}
-                                    onChange={(e) => setEmployeeReportScope(e.target.value as 'active-project' | 'all-projects')}
-                                    className="h-10 px-3 border border-[#d0d4e4] rounded-lg text-[13px] outline-none bg-white"
-                                >
-                                    <option value="active-project">ขอบเขต: โครงการปัจจุบัน</option>
-                                    <option value="all-projects">ขอบเขต: โครงการทั้งหมด</option>
-                                </select>
-                            </div>
-
-                            <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
                                 <select
                                     value={employeeReportTemplate}
                                     onChange={(e) => setEmployeeReportTemplate(e.target.value as 'compact' | 'detailed')}
@@ -434,39 +506,27 @@ export default function SettingsPage() {
                                     <option value="compact">รูปแบบ: กะทัดรัด</option>
                                     <option value="detailed">รูปแบบ: ละเอียด</option>
                                 </select>
-                                <input
-                                    type="number"
-                                    min={1}
-                                    max={20}
-                                    value={employeeReportMaxItems}
-                                    onChange={(e) => setEmployeeReportMaxItems(Number(e.target.value) || 1)}
-                                    className="h-10 px-3 border border-[#d0d4e4] rounded-lg text-[13px] outline-none"
-                                    placeholder="จำนวนงานสูงสุด"
-                                />
-                                <input
-                                    type="number"
-                                    min={1}
-                                    max={14}
-                                    value={employeeReportDueSoonDays}
-                                    onChange={(e) => setEmployeeReportDueSoonDays(Number(e.target.value) || 1)}
-                                    className="h-10 px-3 border border-[#d0d4e4] rounded-lg text-[13px] outline-none"
-                                    placeholder="แจ้งเตือนก่อน (วัน)"
-                                />
-                                <div className="h-10 px-3 border border-[#d0d4e4] rounded-lg text-[12px] text-[#676879] flex items-center">
-                                    โครงการปัจจุบัน: {activeProject?.name || 'ไม่มี'}
-                                </div>
                             </div>
 
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                                {renderSwitch(employeeReportIncludeOverdue, setEmployeeReportIncludeOverdue, 'รวมงานที่เกินกำหนด')}
-                                {renderSwitch(employeeReportIncludeDueSoon, setEmployeeReportIncludeDueSoon, 'รวมงานที่ใกล้ถึงกำหนด')}
-                                {renderSwitch(employeeReportIncludeInProgress, setEmployeeReportIncludeInProgress, 'รวมสถานะกำลังดำเนินการ')}
-                                {renderSwitch(employeeReportIncludeNotStarted, setEmployeeReportIncludeNotStarted, 'รวมสถานะยังไม่เริ่ม')}
-                                {renderSwitch(employeeReportIncludeCompleted, setEmployeeReportIncludeCompleted, 'รวมสถานะเสร็จสิ้น')}
+                            <div className="rounded-lg border border-[#e6e9ef] bg-[#f8fbff] px-3 py-2 text-[12px] text-[#516273]">
+                                ระบบอัตโนมัติของโปรเจ็กต์นี้จะรวมงานทั้งหมดที่มอบหมายให้พนักงานคนนั้นจริง ๆ
+                                โดยใช้ความถี่, วันส่ง, รูปแบบรายงาน และสมาชิกทดสอบจากหน้านี้
                             </div>
                         </div>
 
                         <div className="bg-white border border-[#d0d4e4] rounded-xl p-4">
+                            <div className="flex items-center gap-2 text-[15px] font-semibold text-[#323338] mb-3">
+                                <RefreshCw className="w-4 h-4 text-[#0073ea]" />
+                                Webhook Google Apps Script
+                            </div>
+                            <div className="rounded-lg border border-[#e6e9ef] bg-[#f8fbff] px-3 py-2 text-[12px] text-[#516273] mb-3">
+                                ใช้ Apps Script เป็นตัวปลุก `/api/cron/trigger-report`
+                                ตามเวลา 08:00 และ 17:00 เพื่อให้ระบบส่งรายงาน LINE อัตโนมัติ
+                            </div>
+                            <div className="rounded-lg border border-[#e6e9ef] bg-[#fffced] px-3 py-2 text-[12px] text-[#856404] mb-4">
+                                ใช้ไฟล์ `google-apps-script.js` ที่ root ของโปรเจ็กต์เพื่อวางใน Google Apps Script
+                                แล้วตั้ง trigger สำหรับเรียก cron route ของระบบ
+                            </div>
                             <button
                                 type="button"
                                 onClick={() => void handleSaveLineConfig()}
@@ -512,7 +572,7 @@ export default function SettingsPage() {
                                 <div>กำลังดำเนินการ: <span className="font-semibold text-[#323338]">{preview.inProgress}</span></div>
                                 <div>ยังไม่เริ่ม: <span className="font-semibold text-[#323338]">{preview.notStarted}</span></div>
                                 <div>เสร็จสิ้น: <span className="font-semibold text-[#323338]">{preview.completed}</span></div>
-                                <div>จำนวนงาน: <span className="font-semibold text-[#323338]">{preview.tasks.length}</span></div>
+                                <div>จำนวนงานทั้งหมด: <span className="font-semibold text-[#323338]">{preview.total}</span></div>
                             </div>
 
                             <button

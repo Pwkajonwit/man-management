@@ -3,11 +3,13 @@ import { NextRequest, NextResponse } from 'next/server';
 const LINE_CHANNEL_ACCESS_TOKEN = process.env.LINE_CHANNEL_ACCESS_TOKEN || '';
 const LINE_ADMIN_USER_ID_FROM_ENV = process.env.LINE_ADMIN_USER_ID || '';
 const LINE_PUSH_URL = 'https://api.line.me/v2/bot/message/push';
+const BANGKOK_TIMEZONE = 'Asia/Bangkok';
 
 interface ReportPayload {
     projectName: string;
     projectId?: string;
     adminLineUserId?: string;
+    adminLineGroupId?: string;
     reportType?: 'project-summary' | 'today-team-load' | 'completed-last-2-days';
     teamLoad?: Array<{
         name: string;
@@ -84,6 +86,28 @@ interface FlexMessage {
     };
 }
 
+function normalizeAppUrl(value?: string | null): string {
+    return (value || '').trim().replace(/\/$/, '');
+}
+
+function resolveAppUrl(request: NextRequest): string {
+    const requestOrigin = normalizeAppUrl(request.nextUrl?.origin);
+    const configuredUrl = normalizeAppUrl(process.env.NEXT_PUBLIC_APP_URL);
+
+    if (configuredUrl) {
+        try {
+            if (new URL(configuredUrl).origin === requestOrigin) {
+                return configuredUrl;
+            }
+        } catch {
+            // Fall back to the current request origin when the configured URL is invalid.
+        }
+    }
+
+    if (requestOrigin) return requestOrigin;
+    return configuredUrl || 'https://your-app.vercel.app';
+}
+
 function isAllowedOrigin(request: NextRequest): boolean {
     const configuredUrl = process.env.NEXT_PUBLIC_APP_URL;
     if (!configuredUrl) return true;
@@ -106,6 +130,9 @@ function isValidReportPayload(body: unknown): body is ReportPayload {
     if (input.projectId !== undefined && typeof input.projectId !== 'string') return false;
 
     if (input.adminLineUserId !== undefined && typeof input.adminLineUserId !== 'string') {
+        return false;
+    }
+    if (input.adminLineGroupId !== undefined && typeof input.adminLineGroupId !== 'string') {
         return false;
     }
     if (
@@ -161,10 +188,22 @@ function isValidReportPayload(body: unknown): body is ReportPayload {
     return requiredKeys.every((key) => typeof metrics[key] === 'number' && Number.isFinite(metrics[key] as number));
 }
 
-function buildFlexMessage(payload: ReportPayload): FlexMessage {
-    const generatedAt = new Date().toLocaleString('th-TH', { hour12: false });
+function formatBangkokDateTime(date: Date): string {
+    return new Intl.DateTimeFormat('th-TH', {
+        timeZone: BANGKOK_TIMEZONE,
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false,
+    }).format(date);
+}
+
+function buildFlexMessage(payload: ReportPayload, appUrl: string): FlexMessage {
+    const generatedAt = formatBangkokDateTime(new Date());
     const reportType = payload.reportType || 'project-summary';
-    const appUrl = (process.env.NEXT_PUBLIC_APP_URL || '').trim().replace(/\/$/, '') || 'https://your-app.vercel.app';
     const liffId = (process.env.NEXT_PUBLIC_LIFF_ID || '').trim();
     const reportPath = `/reports/admin?type=${encodeURIComponent(reportType)}${payload.projectId ? `&projectId=${encodeURIComponent(payload.projectId)}` : ''}`;
     const reportUrl = liffId
@@ -390,31 +429,45 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ ok: false, error: 'Invalid payload' }, { status: 400 });
         }
 
-        const targetLineUserId = (body.adminLineUserId || '').trim() || LINE_ADMIN_USER_ID_FROM_ENV.trim();
-        if (!targetLineUserId) {
+        const targetIds = [
+            (body.adminLineUserId || '').trim(),
+            (body.adminLineGroupId || '').trim(),
+            LINE_ADMIN_USER_ID_FROM_ENV.trim(),
+        ]
+            .join(',')
+            .split(',')
+            .map((id) => id.trim())
+            .filter(Boolean);
+
+        const uniqueTargetIds = Array.from(new Set(targetIds));
+
+        if (uniqueTargetIds.length === 0) {
             return NextResponse.json(
                 { ok: false, error: 'LINE admin user ID is not configured in Settings or environment' },
                 { status: 500 }
             );
         }
 
-        const flexMessage = buildFlexMessage(body);
+        const flexMessage = buildFlexMessage(body, resolveAppUrl(request));
 
-        const response = await fetch(LINE_PUSH_URL, {
+        const pushPromises = uniqueTargetIds.map((targetId) => fetch(LINE_PUSH_URL, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
                 Authorization: `Bearer ${LINE_CHANNEL_ACCESS_TOKEN}`,
             },
             body: JSON.stringify({
-                to: targetLineUserId,
+                to: targetId,
                 messages: [flexMessage],
             }),
-        });
+        }));
 
-        if (!response.ok) {
-            const errorText = await response.text();
-            return NextResponse.json({ ok: false, error: errorText }, { status: response.status });
+        const responses = await Promise.all(pushPromises);
+        const failedResponse = responses.find((response) => !response.ok);
+
+        if (failedResponse) {
+            const errorText = await failedResponse.text();
+            return NextResponse.json({ ok: false, error: errorText }, { status: failedResponse.status });
         }
 
         return NextResponse.json({ ok: true });

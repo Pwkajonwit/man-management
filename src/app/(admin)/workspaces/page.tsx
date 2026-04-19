@@ -134,7 +134,7 @@ export default function TaskBoardPage() {
   );
   const [pendingAddCategory, setPendingAddCategory] = useState<string | null>(null);
   const [isCreatingTask, setIsCreatingTask] = useState(false);
-  const [manualCategories, setManualCategories] = useState<string[]>([]);
+  const [manualCategoriesByProject, setManualCategoriesByProject] = useState<Record<string, string[]>>({});
   const [isAddingCategory, setIsAddingCategory] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState('');
   const [hideCompletedTasks, setHideCompletedTasks] = useState(true);
@@ -168,6 +168,10 @@ export default function TaskBoardPage() {
   const projectTasks = useMemo(
     () => tasks.filter((task) => task.projectId === activeProjectId),
     [tasks, activeProjectId]
+  );
+  const manualCategories = useMemo(
+    () => (activeProjectId ? manualCategoriesByProject[activeProjectId] || [] : []),
+    [activeProjectId, manualCategoriesByProject]
   );
   const activeProjectName = activeProject?.name || '';
   const activeProjectCode = activeProject?.code || '';
@@ -568,7 +572,12 @@ export default function TaskBoardPage() {
       return;
     }
 
-    setManualCategories((prev) => [...prev, categoryName]);
+    if (!activeProjectId) return;
+
+    setManualCategoriesByProject((prev) => ({
+      ...prev,
+      [activeProjectId]: [...(prev[activeProjectId] || []), categoryName],
+    }));
     setNewCategoryName('');
     setIsAddingCategory(false);
   };
@@ -779,6 +788,7 @@ export default function TaskBoardPage() {
           projectName: activeProject?.name || 'Unknown Project',
           projectId: activeProject?.id || '',
           adminLineUserId: (notificationSettings.lineAdminUserId || '').trim(),
+          adminLineGroupId: (notificationSettings.lineAdminGroupId || '').trim(),
           reportType,
           teamLoad,
           completedDigest: {

@@ -3,6 +3,7 @@ import { addDays, isPast, isToday } from 'date-fns';
 import { Task, Project, TeamMember } from '@/types/construction';
 import { getStatusColor, getStatusLabel } from '@/utils/statusUtils';
 import { getTaskOwnerNames } from '@/utils/taskOwnerUtils';
+import { getMemberCapacityHours } from '@/utils/memberCapacity';
 
 interface MyWorkTrackerViewProps {
     tasks: Task[];
@@ -78,7 +79,7 @@ export default function MyWorkTrackerView({ tasks, projects, teamMembers }: MyWo
 
     const ownerLoad = useMemo(() => {
         const selectedMember = selectableMembers.find((member) => member.name === activeMyWorkUser) || null;
-        const capacityHours = Math.max(1, selectedMember?.capacityHoursPerWeek || 40);
+        const capacityHours = Math.max(1, getMemberCapacityHours(selectedMember));
         const openHours = view.openTasks.reduce((sum, task) => sum + (task.estimatedHours ?? 8), 0);
         const utilPercent = Math.round((openHours / capacityHours) * 100);
         const onTrackCount = Math.max(0, view.openTasks.length - view.overdue.length);

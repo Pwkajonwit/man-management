@@ -78,33 +78,41 @@ const getStatusBadgeClass = (status: Task['status']) => {
 
 function ReportTable({ title, rows }: { title: string; rows: ReportRow[] }) {
   return (
-    <section className="border border-[#cfd8e6] rounded-lg overflow-hidden bg-white">
+    <section className="report-section border border-[#cfd8e6] rounded-lg overflow-hidden bg-white">
       <div className="px-4 py-2.5 bg-[#f2f6fb] border-b border-[#d8e2ee]">
         <h2 className="text-[14px] font-semibold text-[#1f3147]">{title}</h2>
       </div>
       {rows.length === 0 ? (
         <div className="px-4 py-4 text-[13px] text-[#5f7084]">ไม่มีงานในช่วงเวลานี้</div>
       ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full text-[13px] table-fixed">
+        <div className="report-table-wrap overflow-x-auto">
+          <table className="report-table w-full text-[13px] table-fixed">
+            <colgroup>
+              <col className="w-[56px]" />
+              <col className="w-[140px]" />
+              <col />
+              <col className="w-[180px]" />
+              <col className="w-[150px]" />
+              <col className="w-[140px]" />
+            </colgroup>
             <thead className="bg-[#14365a]">
               <tr>
-                <th className="px-3 py-2 text-left font-semibold text-white/95 w-[56px]">ลำดับ</th>
-                <th className="px-3 py-2 text-left font-semibold text-white/95 w-[140px]">หมวดหมู่</th>
+                <th className="px-3 py-2 text-left font-semibold text-white/95">ลำดับ</th>
+                <th className="px-3 py-2 text-left font-semibold text-white/95">หมวดหมู่</th>
                 <th className="px-3 py-2 text-left font-semibold text-white/95">งาน</th>
-                <th className="px-3 py-2 text-left font-semibold text-white/95 w-[180px]">
+                <th className="px-3 py-2 text-left font-semibold text-white/95">
                   <div className="flex flex-col leading-[1.2]">
                     <span>ผู้รับผิดชอบ</span>
                     <span className="mt-1 text-white/80">ทีมช่าง</span>
                   </div>
                 </th>
-                <th className="px-3 py-2 text-left font-semibold text-white/95 w-[150px]">
+                <th className="px-3 py-2 text-left font-semibold text-white/95">
                   <div className="flex flex-col leading-[1.2]">
                     <span>วันที่เริ่ม</span>
                     <span className="mt-1 text-white/80">วันที่สิ้นสุด</span>
                   </div>
                 </th>
-                <th className="px-3 py-2 text-left font-semibold text-white/95 w-[140px]">
+                <th className="px-3 py-2 text-left font-semibold text-white/95">
                   <div className="flex flex-col leading-[1.2]">
                     <span>สถานะ</span>
                     <span className="mt-1 text-white/80">ความสำคัญ</span>
@@ -116,12 +124,12 @@ function ReportTable({ title, rows }: { title: string; rows: ReportRow[] }) {
               {rows.map((row, index) => (
                 <tr key={row.id} className={`border-b border-[#e6ecf3] last:border-b-0 ${index % 2 === 0 ? 'bg-white' : 'bg-[#fbfdff]'}`}>
                   <td className="px-3 py-2 text-[#5f7084]">{index + 1}</td>
-                  <td className="px-3 py-2 text-[#5f7084] break-words">{row.category}</td>
-                  <td className="px-3 py-2 text-[#1f3147] break-words leading-relaxed">{row.name}</td>
+                  <td className="px-3 py-2 text-[#5f7084] whitespace-normal break-normal">{row.category}</td>
+                  <td className="px-3 py-2 text-[#1f3147] whitespace-normal break-normal leading-relaxed">{row.name}</td>
                   <td className="px-3 py-2">
                     <div className="flex flex-col gap-1.5">
-                      <div className="text-[#5f7084] break-words">{row.ownerLabel}</div>
-                      <div className="text-[#5f7084] break-words">{row.crewLabel}</div>
+                      <div className="text-[#5f7084] whitespace-normal break-normal">{row.ownerLabel}</div>
+                      <div className="text-[#5f7084] whitespace-normal break-normal">{row.crewLabel}</div>
                     </div>
                   </td>
                   <td className="px-3 py-2">
@@ -221,7 +229,36 @@ export default function CompletedTwoDayReportPage() {
   return (
     <div className="min-h-screen bg-[#f5f6f8] p-4 sm:p-6 lg:p-8">
       <style jsx global>{`
+        .report-table {
+          border-collapse: collapse;
+        }
+
+        .report-table th,
+        .report-table td {
+          overflow-wrap: normal;
+          word-break: normal;
+        }
+
         @media print {
+          @page {
+            size: A4 portrait;
+            margin: 10mm;
+          }
+
+          @page report-a4 {
+            size: A4 portrait;
+            margin: 10mm;
+          }
+
+          html,
+          body {
+            width: 210mm !important;
+            min-height: 297mm !important;
+            background: #ffffff !important;
+            print-color-adjust: exact !important;
+            -webkit-print-color-adjust: exact !important;
+          }
+
           body * {
             visibility: hidden !important;
           }
@@ -230,10 +267,13 @@ export default function CompletedTwoDayReportPage() {
             visibility: visible !important;
           }
           .print-area {
-            position: absolute !important;
-            left: 0 !important;
-            top: 0 !important;
-            width: 100% !important;
+            page: report-a4;
+            position: fixed !important;
+            left: 10mm !important;
+            top: 10mm !important;
+            width: calc(100vw - 20mm) !important;
+            min-height: calc(100vh - 20mm) !important;
+            box-sizing: border-box !important;
           }
           .no-print {
             display: none !important;
@@ -244,9 +284,63 @@ export default function CompletedTwoDayReportPage() {
             border-radius: 0 !important;
             margin: 0 !important;
             max-width: none !important;
+            padding: 0 !important;
+            font-size: 9.8px !important;
+            transform: none !important;
           }
-          body {
-            background: #ffffff !important;
+
+          .report-section {
+            break-inside: avoid !important;
+            page-break-inside: avoid !important;
+          }
+
+          .report-table-wrap {
+            overflow: visible !important;
+          }
+
+          .report-table {
+            width: 100% !important;
+            table-layout: fixed !important;
+            font-size: 9.8px !important;
+          }
+
+          .report-table th,
+          .report-table td {
+            padding: 5px 6px !important;
+            vertical-align: top !important;
+            line-height: 1.35 !important;
+            overflow-wrap: normal !important;
+            word-break: normal !important;
+            hyphens: none !important;
+          }
+
+          .report-table tr {
+            break-inside: avoid !important;
+            page-break-inside: avoid !important;
+          }
+
+          .report-table col:nth-child(1) {
+            width: 34px !important;
+          }
+
+          .report-table col:nth-child(2) {
+            width: 78px !important;
+          }
+
+          .report-table col:nth-child(3) {
+            width: auto !important;
+          }
+
+          .report-table col:nth-child(4) {
+            width: 104px !important;
+          }
+
+          .report-table col:nth-child(5) {
+            width: 76px !important;
+          }
+
+          .report-table col:nth-child(6) {
+            width: 88px !important;
           }
         }
       `}</style>

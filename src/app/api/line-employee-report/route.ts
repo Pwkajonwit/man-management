@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 
 const LINE_CHANNEL_ACCESS_TOKEN = process.env.LINE_CHANNEL_ACCESS_TOKEN || '';
 const LINE_PUSH_URL = 'https://api.line.me/v2/bot/message/push';
+const BANGKOK_TIMEZONE = 'Asia/Bangkok';
 
 interface EmployeeReportPayload {
     to: string;
@@ -507,6 +508,19 @@ function groupTasksByProject(tasks: EmployeeReportPayload['tasks']) {
     return Array.from(grouped.entries()).map(([projectName, items]) => ({ projectName, tasks: items }));
 }
 
+function formatBangkokDateTime(date: Date): string {
+    return new Intl.DateTimeFormat('th-TH', {
+        timeZone: BANGKOK_TIMEZONE,
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false,
+    }).format(date);
+}
+
 function buildFlexMessage(payload: EmployeeReportPayload) {
     const today = dayStart(new Date());
     const visibleTasks = payload.tasks.filter((task) => !isCompletedStatus(task.status));
@@ -520,7 +534,7 @@ function buildFlexMessage(payload: EmployeeReportPayload) {
     };
     const groupedProjectTasks = groupTasksByProject(timelineTasks);
     const multiProjectMode = groupedProjectTasks.length > 1;
-    const generatedAt = new Date().toLocaleString('en-GB', { hour12: false });
+    const generatedAt = formatBangkokDateTime(new Date());
     const summaryCards: FlexBoxNode[] = [
         {
             type: 'box',

@@ -4,6 +4,7 @@ import React, { useMemo, useRef, useState } from 'react';
 import { Plus, Edit2, Trash2, Check, X, Camera, ImagePlus, Search, CheckCircle2, Loader2 } from 'lucide-react';
 import { SystemUserAccount, Task, TeamMember } from '@/types/construction';
 import { getTaskOwnerNames } from '@/utils/taskOwnerUtils';
+import { DEFAULT_CAPACITY_HOURS_PER_WEEK, getMemberCapacityHours } from '@/utils/memberCapacity';
 import { useConfirmModal } from '@/contexts/ConfirmModalContext';
 
 interface UserManagementViewProps {
@@ -66,7 +67,7 @@ export default function UserManagementView({
     const [newMemberPosition, setNewMemberPosition] = useState('');
     const [newMemberDepartment, setNewMemberDepartment] = useState('');
     const [newMemberPhone, setNewMemberPhone] = useState('');
-    const [newMemberCapacity, setNewMemberCapacity] = useState('40');
+    const [newMemberCapacity, setNewMemberCapacity] = useState(String(DEFAULT_CAPACITY_HOURS_PER_WEEK));
     const [newMemberType, setNewMemberType] = useState<MemberType>('team');
     const [newMemberAvatar, setNewMemberAvatar] = useState('');
 
@@ -129,14 +130,14 @@ export default function UserManagementView({
     }, [memberTab, searchQuery, systemUsers]);
 
     const summary = useMemo(() => {
-        const totalCapacity = teamMembers.reduce((sum, member) => sum + (member.capacityHoursPerWeek ?? 40), 0);
+        const totalCapacity = teamMembers.reduce((sum, member) => sum + getMemberCapacityHours(member), 0);
         const totalAssigned = teamMembers.reduce((sum, member) => sum + (loadByMemberName.get(member.name)?.assignedHours || 0), 0);
         const lineLinked = teamMembers.filter((member) => Boolean(member.lineUserId)).length;
         const teamCount = teamMembers.filter((member) => getMemberType(member) === 'team').length;
         const crewCount = teamMembers.filter((member) => getMemberType(member) === 'crew').length;
         const overloaded = teamMembers.filter((member) => {
             const assigned = loadByMemberName.get(member.name)?.assignedHours || 0;
-            const capacity = member.capacityHoursPerWeek ?? 40;
+            const capacity = getMemberCapacityHours(member);
             return assigned > capacity;
         }).length;
 
@@ -240,7 +241,7 @@ export default function UserManagementView({
             position: newMemberPosition.trim() || 'Staff',
             department: newMemberDepartment.trim() || 'General',
             phone: newMemberPhone.trim() || '-',
-            capacityHoursPerWeek: Number.parseInt(newMemberCapacity, 10) || 40,
+            capacityHoursPerWeek: Number.parseInt(newMemberCapacity, 10) || DEFAULT_CAPACITY_HOURS_PER_WEEK,
             avatar: newMemberAvatar || undefined,
         };
 
@@ -249,7 +250,7 @@ export default function UserManagementView({
         setNewMemberPosition('');
         setNewMemberDepartment('');
         setNewMemberPhone('');
-        setNewMemberCapacity('40');
+        setNewMemberCapacity(String(DEFAULT_CAPACITY_HOURS_PER_WEEK));
         setNewMemberType('team');
         setNewMemberAvatar('');
     };
@@ -788,7 +789,7 @@ export default function UserManagementView({
                             <div className="divide-y divide-[#e6e9ef]">
                                 {filteredTeamMembers.map((member) => {
                                     const load = loadByMemberName.get(member.name) || { taskCount: 0, assignedHours: 0 };
-                                    const capacity = member.capacityHoursPerWeek ?? 40;
+                                    const capacity = getMemberCapacityHours(member);
                                     const overloaded = load.assignedHours > capacity;
 
                                     return (
@@ -838,7 +839,7 @@ export default function UserManagementView({
                                                         <input value={editingData.position || ''} onChange={(e) => setEditingData({ ...editingData, position: e.target.value })} className="w-full bg-white border border-[#0073ea] rounded px-2 py-1 text-sm focus:outline-none" placeholder="ตำแหน่ง" />
                                                         <input value={editingData.department || ''} onChange={(e) => setEditingData({ ...editingData, department: e.target.value })} className="w-full bg-white border border-[#0073ea] rounded px-2 py-1 text-sm focus:outline-none" placeholder="แผนก" />
                                                         <input value={editingData.phone || ''} onChange={(e) => setEditingData({ ...editingData, phone: e.target.value })} className="w-full bg-white border border-[#0073ea] rounded px-2 py-1 text-sm focus:outline-none" placeholder="เบอร์โทร" />
-                                                        <input type="number" min="1" max="168" value={editingData.capacityHoursPerWeek ?? 40} onChange={(e) => setEditingData({ ...editingData, capacityHoursPerWeek: Number.parseInt(e.target.value, 10) || 40 })} className="w-full bg-white border border-[#0073ea] rounded px-2 py-1 text-sm focus:outline-none" placeholder="ชั่วโมงทำงาน" />
+                                                        <input type="number" min="1" max="168" value={editingData.capacityHoursPerWeek ?? DEFAULT_CAPACITY_HOURS_PER_WEEK} onChange={(e) => setEditingData({ ...editingData, capacityHoursPerWeek: Number.parseInt(e.target.value, 10) || DEFAULT_CAPACITY_HOURS_PER_WEEK })} className="w-full bg-white border border-[#0073ea] rounded px-2 py-1 text-sm focus:outline-none" placeholder="ชั่วโมงทำงาน" />
                                                     </div>
                                                 ) : (
                                                     <div className="grid grid-cols-1 sm:grid-cols-7 flex-1 px-2 gap-2 items-center min-w-0">

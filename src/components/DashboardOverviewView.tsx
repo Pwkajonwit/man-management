@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { addDays, isPast } from 'date-fns';
 import { Task, TeamMember } from '@/types/construction';
 import { getTaskOwnerNames, isTaskUnassigned } from '@/utils/taskOwnerUtils';
+import { getMemberCapacityHours } from '@/utils/memberCapacity';
 
 interface DashboardOverviewViewProps {
     tasks: Task[];
@@ -58,7 +59,7 @@ export default function DashboardOverviewView({ tasks, teamMembers }: DashboardO
                 const memberTasks = tasks.filter((task) => getTaskOwnerNames(task, teamMembers).includes(member.name));
                 const openTasks = memberTasks.filter((task) => !isTaskDone(task));
                 const assignedHours = openTasks.reduce((sum, task) => sum + (task.estimatedHours ?? 8), 0);
-                const capacity = member.capacityHoursPerWeek ?? 40;
+                const capacity = getMemberCapacityHours(member);
                 const utilization = capacity > 0 ? Math.round((assignedHours / capacity) * 100) : 0;
                 const overdue = openTasks.filter((task) => {
                     if (isTaskDone(task) || !task.planEndDate) return false;
